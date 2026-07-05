@@ -1,0 +1,173 @@
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+ * See LICENSE in the project root for license information.
+ */
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #f7f7f7;
+    color: #1f1f1f;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.ms-welcome__header {
+    padding: 10px 20px 16px;
+    padding-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f0e6d6;
+    border-bottom: 1px solid #c8b08a;
+}
+
+.ms-welcome__main {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 0;
+    padding: 12px 18px 20px;
+    gap: 10px;
+    background: #f7f7f7;
+}
+
+.ms-welcome__main > h2 {
+    width: 100%;
+    text-align: center;
+}
+
+.tab-bar {
+    display: flex;
+    gap: 8px;
+}
+
+.tab-button {
+    flex: 1;
+    border: 1px solid #b08a4b;
+    border-radius: 6px;
+    background: #fffdf8;
+    color: #4a2f0f;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.tab-button.active {
+    background: #8b5a2b;
+    color: #ffffff;
+    border-color: #8b5a2b;
+}
+
+.tab-panel {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tab-panel.active {
+    display: flex;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bottom-actions {
+    margin-top: 8px;
+}
+
+button.ms-Button {
+    border: 1px solid #8b5a2b;
+    background: #fffdf8;
+    color: #4a2f0f;
+    border-radius: 6px;
+    padding: 8px 12px;
+    transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+button.ms-Button:hover {
+    background: #f5e8d2;
+}
+
+button.ms-Button:active {
+    background: #e6cfa7;
+    transform: translateY(1px);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+button.ms-Button--primary {
+    background: #8b5a2b;
+    color: #ffffff;
+    border-color: #8b5a2b;
+}
+
+button.ms-Button--primary:hover {
+    background: #6f4518;
+}
+
+button.ms-Button--primary:active {
+    background: #5d3a14;
+    transform: translateY(1px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.file-input,
+.url-input {
+    width: 100%;
+    border: 1px solid #b08a4b;
+    border-radius: 6px;
+    padding: 8px;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #1f1f1f;
+}
+
+.citation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.citation-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 140px;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.citation-row label {
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+    color: #2a2a2a;
+}
+
+.helper-text {
+    margin: 0;
+    color: #5f5344;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.status {
+    margin-top: 8px;
+    color: #2b2b2b;
+    font-size: 13px;
+    line-height: 1.4;
+    background: #fffdf8;
+    border: 1px solid #e2d1b0;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+b {
+    font-weight: bold;
+}

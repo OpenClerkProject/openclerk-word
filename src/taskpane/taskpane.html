@@ -1,0 +1,58 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WordClerk</title>
+
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body class="ms-font-m ms-welcome ms-Fabric">
+    <header class="ms-welcome__header ms-bgColor-neutralLighter">
+        <img width="56" height="56" src="../../assets/logo-filled.svg" alt="WordClerk" title="WordClerk" />
+        <h1 class="ms-font-su">WordClerk</h1>
+    </header>
+    <section id="sideload-msg" class="ms-welcome__main">
+        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see the task pane.</h2>
+    </section>
+    <main id="app-body" class="ms-welcome__main" style="display: none;">
+        <div class="tab-bar" role="tablist" aria-label="Citation workflows">
+            <button id="case-law-tab" class="tab-button active" role="tab" aria-selected="true">Case Law</button>
+            <button id="non-patent-tab" class="tab-button" role="tab" aria-selected="false">Non-patent Literature</button>
+        </div>
+
+        <section id="case-law-panel" class="tab-panel active" role="tabpanel">
+            <p class="ms-font-l">Use a source .docx file that already has case-law citations hyperlinked and apply those same links to the active document without changing the visible text.</p>
+            <p class="helper-text">Bluebook formatting is not rewritten by this tool; it only applies or removes hyperlinks around existing citations.</p>
+            <label class="ms-Label" for="source-file">Source document (.docx)</label>
+            <input id="source-file" class="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+            <div class="button-row">
+                <button id="apply-hyperlinks" class="ms-Button ms-Button--primary">Apply hyperlinks</button>
+                <button id="remove-hyperlinks" class="ms-Button">Remove hyperlinks</button>
+            </div>
+        </section>
+
+        <section id="non-patent-panel" class="tab-panel" role="tabpanel">
+            <p class="ms-font-l">Scan the current document for parenthetical citations and assign URLs to each one.</p>
+            <p class="helper-text">Bluebook formatting is not rewritten by this tool; it only adds or removes hyperlinks around existing parenthetical citations.</p>
+            <div class="button-row">
+                <button id="scan-parentheticals" class="ms-Button ms-Button--primary">Scan citations</button>
+            </div>
+            <div id="parenthetical-citation-list" class="citation-list"></div>
+            <div class="button-row bottom-actions">
+                <button id="add-parenthetical-hyperlinks" class="ms-Button ms-Button--primary">Add Hyperlinks</button>
+                <button id="remove-parenthetical-hyperlinks" class="ms-Button">Remove Hyperlinks</button>
+            </div>
+        </section>
+
+        <p id="status" class="status" aria-live="polite">Choose a source document to begin.</p>
+    </main>
+</body>
+
+</html>
