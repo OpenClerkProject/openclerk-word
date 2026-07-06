@@ -88,4 +88,3 @@ If you want to sideload the add-in manually in Word Desktop:
 
 > Note: The manifest currently points to `https://localhost:3000/` for the add-in content, so the easiest install path is using `npm run start`.
 
-If you want me to commit these changes, tell me and I'll run the git commands (git must be available in the environment).
