@@ -25,6 +25,7 @@
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js"
+    ,"test": "jest"
   },
   "dependencies": {
     "@types/jszip": "^3.4.0",
@@ -58,6 +59,15 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "5.2.4",
     "sharp": "^0.32.0"
+  ,
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.ts"]
   },
   "prettier": "office-addin-prettier-config",
   "browserslist": [
