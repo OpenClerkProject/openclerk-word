@@ -1,6 +1,65 @@
 /******/ (function() { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./src/taskpane/utils.ts":
+/*!*******************************!*\
+  !*** ./src/taskpane/utils.ts ***!
+  \*******************************/
+/***/ (function(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   escapeHtml: function() { return /* binding */ escapeHtml; },
+/* harmony export */   extractParentheticalCitations: function() { return /* binding */ extractParentheticalCitations; },
+/* harmony export */   isLikelyCaseCitation: function() { return /* binding */ isLikelyCaseCitation; },
+/* harmony export */   normalizeText: function() { return /* binding */ normalizeText; },
+/* harmony export */   stripHtmlHyperlinks: function() { return /* binding */ stripHtmlHyperlinks; }
+/* harmony export */ });
+function normalizeText(value) {
+  return value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+}
+function isLikelyCaseCitation(value) {
+  var normalized = normalizeText(value);
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.includes(" v. ") || normalized.includes(" v ")) {
+    return true;
+  }
+  return /\b\d{4}\b/.test(normalized);
+}
+function extractParentheticalCitations(text) {
+  var matches = text.match(/\(([^()]{1,120})\)/g) || [];
+  var uniqueMatches = new Set();
+  matches.forEach(function (match) {
+    var citation = normalizeText(match.slice(1, -1));
+    if (!citation || !/[A-Za-z0-9]/.test(citation)) {
+      return;
+    }
+    uniqueMatches.add(citation);
+  });
+  return Array.from(uniqueMatches);
+}
+function escapeHtml(str) {
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function stripHtmlHyperlinks(html) {
+  if (!html) return "";
+
+  // Replace anchor tags with their inner content
+  var result = html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, "$1");
+
+  // Remove any remaining HTML tags
+  result = result.replace(/<[^>]+>/g, "");
+
+  // Decode a handful of common HTML entities
+  result = result.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return normalizeText(result);
+}
+
+/***/ }),
+
 /***/ "./src/taskpane/word.ts":
 /*!******************************!*\
   !*** ./src/taskpane/word.ts ***!
@@ -11,8 +70,7 @@
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jszip */ "./node_modules/jszip/dist/jszip.min.js");
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(jszip__WEBPACK_IMPORTED_MODULE_0__);
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./utils */ "./src/taskpane/utils.ts");
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -29,7 +87,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
  * See LICENSE in the project root for license information.
  */
 
+/// <reference types="office-js" />
+
 /* global document, Office, Word */
+
 
 
 var sourceCitationMap = null;
@@ -149,7 +210,7 @@ function _applyCaseLawHyperlinksFromSource() {
           _context3.n = 3;
           return Word.run(/*#__PURE__*/function () {
             var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(context) {
-              var appliedCount, citationEntries, _i, _citationEntries, _citationEntries$_i, citationText, url, results, _iterator, _step, item, _iterator2, _step2, _item, normalizedText, hyperlinks, _t2;
+              var appliedCount, citationEntries, _i, _citationEntries, _citationEntries$_i, citationText, url, results, _iterator, _step, item, _iterator2, _step2, _item, normalizedText, hyperlinks, html, _t2;
               return _regenerator().w(function (_context2) {
                 while (1) switch (_context2.p = _context2.n) {
                   case 0:
@@ -158,7 +219,7 @@ function _applyCaseLawHyperlinksFromSource() {
                     _i = 0, _citationEntries = citationEntries;
                   case 1:
                     if (!(_i < _citationEntries.length)) {
-                      _context2.n = 16;
+                      _context2.n = 20;
                       break;
                     }
                     _citationEntries$_i = _slicedToArray(_citationEntries[_i], 2), citationText = _citationEntries$_i[0], url = _citationEntries$_i[1];
@@ -166,7 +227,7 @@ function _applyCaseLawHyperlinksFromSource() {
                       _context2.n = 2;
                       break;
                     }
-                    return _context2.a(3, 15);
+                    return _context2.a(3, 19);
                   case 2:
                     results = context.document.body.search(citationText, {
                       matchCase: false,
@@ -195,16 +256,16 @@ function _applyCaseLawHyperlinksFromSource() {
                     _iterator2.s();
                   case 6:
                     if ((_step2 = _iterator2.n()).done) {
-                      _context2.n = 12;
+                      _context2.n = 16;
                       break;
                     }
                     _item = _step2.value;
-                    normalizedText = normalizeText(_item.text || "");
-                    if (!(!normalizedText || !isLikelyCaseCitation(normalizedText))) {
+                    normalizedText = (0,_utils__WEBPACK_IMPORTED_MODULE_1__.normalizeText)(_item.text || "");
+                    if (!(!normalizedText || !(0,_utils__WEBPACK_IMPORTED_MODULE_1__.isLikelyCaseCitation)(normalizedText))) {
                       _context2.n = 7;
                       break;
                     }
-                    return _context2.a(3, 11);
+                    return _context2.a(3, 15);
                   case 7:
                     hyperlinks = _item.hyperlinks;
                     hyperlinks.load("items");
@@ -215,37 +276,61 @@ function _applyCaseLawHyperlinksFromSource() {
                       _context2.n = 9;
                       break;
                     }
-                    return _context2.a(3, 11);
+                    return _context2.a(3, 15);
                   case 9:
+                    if (!(typeof _item.insertHyperlink === "function")) {
+                      _context2.n = 11;
+                      break;
+                    }
                     _item.insertHyperlink(url, normalizedText, Word.InsertLocation.replace);
                     _context2.n = 10;
                     return context.sync();
                   case 10:
-                    appliedCount += 1;
-                  case 11:
-                    _context2.n = 6;
+                    _context2.n = 14;
                     break;
+                  case 11:
+                    if (!(typeof _item.insertHtml === "function")) {
+                      _context2.n = 13;
+                      break;
+                    }
+                    html = "<a href=\"".concat((0,_utils__WEBPACK_IMPORTED_MODULE_1__.escapeHtml)(url), "\">").concat((0,_utils__WEBPACK_IMPORTED_MODULE_1__.escapeHtml)(normalizedText), "</a>");
+                    _item.insertHtml(html, Word.InsertLocation.replace);
+                    _context2.n = 12;
+                    return context.sync();
                   case 12:
                     _context2.n = 14;
                     break;
                   case 13:
-                    _context2.p = 13;
+                    // Last-resort: replace with plain text (no hyperlink)
+                    _item.insertText(normalizedText, Word.InsertLocation.replace);
+                    _context2.n = 14;
+                    return context.sync();
+                  case 14:
+                    appliedCount += 1;
+                  case 15:
+                    _context2.n = 6;
+                    break;
+                  case 16:
+                    _context2.n = 18;
+                    break;
+                  case 17:
+                    _context2.p = 17;
                     _t2 = _context2.v;
                     _iterator2.e(_t2);
-                  case 14:
-                    _context2.p = 14;
+                  case 18:
+                    _context2.p = 18;
                     _iterator2.f();
-                    return _context2.f(14);
-                  case 15:
+                    return _context2.f(18);
+                  case 19:
                     _i++;
                     _context2.n = 1;
                     break;
-                  case 16:
+                  case 20:
                     setStatus("Added ".concat(appliedCount, " hyperlink(s) to matching case-law citations."));
-                  case 17:
+                  case 21:
                     return _context2.a(2);
                 }
-              }, _callee2, null, [[5, 13, 14, 15]]);
+              }, _callee2, null, [[5, 17, 18, 19]]);
             }));
             return function (_x3) {
               return _ref.apply(this, arguments);
@@ -269,104 +354,26 @@ function removeCaseLawHyperlinks() {
   return _removeCaseLawHyperlinks.apply(this, arguments);
 }
 function _removeCaseLawHyperlinks() {
-  _removeCaseLawHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-    var _t5;
-    return _regenerator().w(function (_context5) {
-      while (1) switch (_context5.p = _context5.n) {
+  _removeCaseLawHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _t4;
+    return _regenerator().w(function (_context4) {
+      while (1) switch (_context4.p = _context4.n) {
         case 0:
           setStatus("Removing hyperlinks...");
-          _context5.p = 1;
-          _context5.n = 2;
-          return Word.run(/*#__PURE__*/function () {
-            var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(context) {
-              var hyperlinks, removedCount, _iterator3, _step3, hyperlink, _iterator4, _step4, _hyperlink, normalizedText, range, replacementRange, _t4;
-              return _regenerator().w(function (_context4) {
-                while (1) switch (_context4.p = _context4.n) {
-                  case 0:
-                    hyperlinks = context.document.body.hyperlinks;
-                    hyperlinks.load("items");
-                    _context4.n = 1;
-                    return context.sync();
-                  case 1:
-                    removedCount = 0;
-                    _iterator3 = _createForOfIteratorHelper(hyperlinks.items);
-                    try {
-                      for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-                        hyperlink = _step3.value;
-                        hyperlink.load("text");
-                      }
-                    } catch (err) {
-                      _iterator3.e(err);
-                    } finally {
-                      _iterator3.f();
-                    }
-                    _context4.n = 2;
-                    return context.sync();
-                  case 2:
-                    _iterator4 = _createForOfIteratorHelper(hyperlinks.items);
-                    _context4.p = 3;
-                    _iterator4.s();
-                  case 4:
-                    if ((_step4 = _iterator4.n()).done) {
-                      _context4.n = 9;
-                      break;
-                    }
-                    _hyperlink = _step4.value;
-                    normalizedText = normalizeText(_hyperlink.text || "");
-                    if (!(!normalizedText || !isLikelyCaseCitation(normalizedText))) {
-                      _context4.n = 5;
-                      break;
-                    }
-                    return _context4.a(3, 8);
-                  case 5:
-                    range = _hyperlink.range;
-                    range.load("text");
-                    _context4.n = 6;
-                    return context.sync();
-                  case 6:
-                    replacementRange = range.insertText(range.text, Word.InsertLocation.replace);
-                    replacementRange.font.color = "Auto";
-                    replacementRange.font.underline = "None";
-                    _context4.n = 7;
-                    return context.sync();
-                  case 7:
-                    removedCount += 1;
-                  case 8:
-                    _context4.n = 4;
-                    break;
-                  case 9:
-                    _context4.n = 11;
-                    break;
-                  case 10:
-                    _context4.p = 10;
-                    _t4 = _context4.v;
-                    _iterator4.e(_t4);
-                  case 11:
-                    _context4.p = 11;
-                    _iterator4.f();
-                    return _context4.f(11);
-                  case 12:
-                    setStatus("Removed ".concat(removedCount, " hyperlink(s) from case-law citations."));
-                  case 13:
-                    return _context4.a(2);
-                }
-              }, _callee4, null, [[3, 10, 11, 12]]);
-            }));
-            return function (_x4) {
-              return _ref2.apply(this, arguments);
-            };
-          }());
+          _context4.p = 1;
+          _context4.n = 2;
+          return removeAllHyperlinks();
         case 2:
-          _context5.n = 4;
+          _context4.n = 4;
           break;
         case 3:
-          _context5.p = 3;
-          _t5 = _context5.v;
-          setStatus("Unable to remove hyperlinks. ".concat(_t5 instanceof Error ? _t5.message : String(_t5)));
+          _context4.p = 3;
+          _t4 = _context4.v;
+          setStatus("Unable to remove hyperlinks. ".concat(_t4 instanceof Error ? _t4.message : String(_t4)));
         case 4:
-          return _context5.a(2);
+          return _context4.a(2);
       }
-    }, _callee5, null, [[1, 3]]);
+    }, _callee4, null, [[1, 3]]);
   }));
   return _removeCaseLawHyperlinks.apply(this, arguments);
 }
@@ -374,25 +381,25 @@ function scanParentheticalCitations() {
   return _scanParentheticalCitations.apply(this, arguments);
 }
 function _scanParentheticalCitations() {
-  _scanParentheticalCitations = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-    var _t6;
-    return _regenerator().w(function (_context7) {
-      while (1) switch (_context7.p = _context7.n) {
+  _scanParentheticalCitations = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+    var _t5;
+    return _regenerator().w(function (_context6) {
+      while (1) switch (_context6.p = _context6.n) {
         case 0:
           setStatus("Scanning for parenthetical citations...");
-          _context7.p = 1;
-          _context7.n = 2;
+          _context6.p = 1;
+          _context6.n = 2;
           return Word.run(/*#__PURE__*/function () {
-            var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(context) {
+            var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(context) {
               var bodyText, citations;
-              return _regenerator().w(function (_context6) {
-                while (1) switch (_context6.n) {
+              return _regenerator().w(function (_context5) {
+                while (1) switch (_context5.n) {
                   case 0:
                     bodyText = context.document.body.getText();
-                    _context6.n = 1;
+                    _context5.n = 1;
                     return context.sync();
                   case 1:
-                    citations = extractParentheticalCitations(bodyText);
+                    citations = (0,_utils__WEBPACK_IMPORTED_MODULE_1__.extractParentheticalCitations)(bodyText);
                     parentheticalEntries = citations.map(function (citation, index) {
                       return {
                         citation: citation,
@@ -407,25 +414,25 @@ function _scanParentheticalCitations() {
                       setStatus("Found ".concat(parentheticalEntries.length, " parenthetical citation(s)."));
                     }
                   case 2:
-                    return _context6.a(2);
+                    return _context5.a(2);
                 }
-              }, _callee6);
+              }, _callee5);
             }));
-            return function (_x5) {
-              return _ref3.apply(this, arguments);
+            return function (_x4) {
+              return _ref2.apply(this, arguments);
             };
           }());
         case 2:
-          _context7.n = 4;
+          _context6.n = 4;
           break;
         case 3:
-          _context7.p = 3;
-          _t6 = _context7.v;
-          setStatus("Unable to scan the document. ".concat(_t6 instanceof Error ? _t6.message : String(_t6)));
+          _context6.p = 3;
+          _t5 = _context6.v;
+          setStatus("Unable to scan the document. ".concat(_t5 instanceof Error ? _t5.message : String(_t5)));
         case 4:
-          return _context7.a(2);
+          return _context6.a(2);
       }
-    }, _callee7, null, [[1, 3]]);
+    }, _callee6, null, [[1, 3]]);
   }));
   return _scanParentheticalCitations.apply(this, arguments);
 }
@@ -433,127 +440,150 @@ function addParentheticalHyperlinks() {
   return _addParentheticalHyperlinks.apply(this, arguments);
 }
 function _addParentheticalHyperlinks() {
-  _addParentheticalHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-    var _t9;
-    return _regenerator().w(function (_context9) {
-      while (1) switch (_context9.p = _context9.n) {
+  _addParentheticalHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+    var _t8;
+    return _regenerator().w(function (_context8) {
+      while (1) switch (_context8.p = _context8.n) {
         case 0:
           if (!(parentheticalEntries.length === 0)) {
-            _context9.n = 1;
+            _context8.n = 1;
             break;
           }
           setStatus("Scan the document for parenthetical citations first.");
-          return _context9.a(2);
+          return _context8.a(2);
         case 1:
           setStatus("Adding hyperlinks...");
-          _context9.p = 2;
-          _context9.n = 3;
+          _context8.p = 2;
+          _context8.n = 3;
           return Word.run(/*#__PURE__*/function () {
-            var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(context) {
-              var addedCount, _iterator5, _step5, entry, url, results, _iterator6, _step6, item, hyperlinks, _t7, _t8;
-              return _regenerator().w(function (_context8) {
-                while (1) switch (_context8.p = _context8.n) {
+            var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(context) {
+              var addedCount, _iterator3, _step3, entry, url, results, _iterator4, _step4, item, hyperlinks, html, _t6, _t7;
+              return _regenerator().w(function (_context7) {
+                while (1) switch (_context7.p = _context7.n) {
                   case 0:
                     addedCount = 0;
-                    _iterator5 = _createForOfIteratorHelper(parentheticalEntries);
-                    _context8.p = 1;
-                    _iterator5.s();
+                    _iterator3 = _createForOfIteratorHelper(parentheticalEntries);
+                    _context7.p = 1;
+                    _iterator3.s();
                   case 2:
-                    if ((_step5 = _iterator5.n()).done) {
-                      _context8.n = 15;
+                    if ((_step3 = _iterator3.n()).done) {
+                      _context7.n = 19;
                       break;
                     }
-                    entry = _step5.value;
+                    entry = _step3.value;
                     url = entry.url.trim();
                     if (url) {
-                      _context8.n = 3;
+                      _context7.n = 3;
                       break;
                     }
-                    return _context8.a(3, 14);
+                    return _context7.a(3, 18);
                   case 3:
                     results = context.document.body.search(entry.citation, {
                       matchCase: false,
                       matchWholeWord: false
                     });
                     results.load("items");
-                    _context8.n = 4;
+                    _context7.n = 4;
                     return context.sync();
                   case 4:
-                    _iterator6 = _createForOfIteratorHelper(results.items);
-                    _context8.p = 5;
-                    _iterator6.s();
+                    _iterator4 = _createForOfIteratorHelper(results.items);
+                    _context7.p = 5;
+                    _iterator4.s();
                   case 6:
-                    if ((_step6 = _iterator6.n()).done) {
-                      _context8.n = 11;
+                    if ((_step4 = _iterator4.n()).done) {
+                      _context7.n = 15;
                       break;
                     }
-                    item = _step6.value;
+                    item = _step4.value;
                     hyperlinks = item.hyperlinks;
                     hyperlinks.load("items");
-                    _context8.n = 7;
+                    _context7.n = 7;
                     return context.sync();
                   case 7:
                     if (!(hyperlinks.items.length > 0)) {
-                      _context8.n = 8;
+                      _context7.n = 8;
                       break;
                     }
-                    return _context8.a(3, 10);
+                    return _context7.a(3, 14);
                   case 8:
+                    if (!(typeof item.insertHyperlink === "function")) {
+                      _context7.n = 10;
+                      break;
+                    }
                     item.insertHyperlink(url, entry.citation, Word.InsertLocation.replace);
-                    _context8.n = 9;
+                    _context7.n = 9;
                     return context.sync();
                   case 9:
-                    addedCount += 1;
-                  case 10:
-                    _context8.n = 6;
+                    _context7.n = 13;
                     break;
+                  case 10:
+                    if (!(typeof item.insertHtml === "function")) {
+                      _context7.n = 12;
+                      break;
+                    }
+                    html = "<a href=\"".concat((0,_utils__WEBPACK_IMPORTED_MODULE_1__.escapeHtml)(url), "\">").concat((0,_utils__WEBPACK_IMPORTED_MODULE_1__.escapeHtml)(entry.citation), "</a>");
+                    item.insertHtml(html, Word.InsertLocation.replace);
+                    _context7.n = 11;
+                    return context.sync();
                   case 11:
-                    _context8.n = 13;
+                    _context7.n = 13;
                     break;
                   case 12:
-                    _context8.p = 12;
-                    _t7 = _context8.v;
-                    _iterator6.e(_t7);
+                    item.insertText(entry.citation, Word.InsertLocation.replace);
+                    _context7.n = 13;
+                    return context.sync();
                   case 13:
-                    _context8.p = 13;
-                    _iterator6.f();
-                    return _context8.f(13);
+                    addedCount += 1;
                   case 14:
-                    _context8.n = 2;
+                    _context7.n = 6;
                     break;
                   case 15:
-                    _context8.n = 17;
+                    _context7.n = 17;
                     break;
                   case 16:
-                    _context8.p = 16;
-                    _t8 = _context8.v;
-                    _iterator5.e(_t8);
+                    _context7.p = 16;
+                    _t6 = _context7.v;
+                    _iterator4.e(_t6);
                   case 17:
-                    _context8.p = 17;
-                    _iterator5.f();
-                    return _context8.f(17);
+                    _context7.p = 17;
+                    _iterator4.f();
+                    return _context7.f(17);
                   case 18:
-                    setStatus("Added ".concat(addedCount, " hyperlink(s) to parenthetical citations."));
+                    _context7.n = 2;
+                    break;
                   case 19:
-                    return _context8.a(2);
+                    _context7.n = 21;
+                    break;
+                  case 20:
+                    _context7.p = 20;
+                    _t7 = _context7.v;
+                    _iterator3.e(_t7);
+                  case 21:
+                    _context7.p = 21;
+                    _iterator3.f();
+                    return _context7.f(21);
+                  case 22:
+                    setStatus("Added ".concat(addedCount, " hyperlink(s) to parenthetical citations."));
+                  case 23:
+                    return _context7.a(2);
                 }
-              }, _callee8, null, [[5, 12, 13, 14], [1, 16, 17, 18]]);
+              }, _callee7, null, [[5, 16, 17, 18], [1, 20, 21, 22]]);
             }));
-            return function (_x6) {
-              return _ref4.apply(this, arguments);
+            return function (_x5) {
+              return _ref3.apply(this, arguments);
             };
           }());
         case 3:
-          _context9.n = 5;
+          _context8.n = 5;
           break;
         case 4:
-          _context9.p = 4;
-          _t9 = _context9.v;
-          setStatus("Unable to add hyperlinks. ".concat(_t9 instanceof Error ? _t9.message : String(_t9)));
+          _context8.p = 4;
+          _t8 = _context8.v;
+          setStatus("Unable to add hyperlinks. ".concat(_t8 instanceof Error ? _t8.message : String(_t8)));
         case 5:
-          return _context9.a(2);
+          return _context8.a(2);
       }
-    }, _callee9, null, [[2, 4]]);
+    }, _callee8, null, [[2, 4]]);
   }));
   return _addParentheticalHyperlinks.apply(this, arguments);
 }
@@ -561,137 +591,26 @@ function removeParentheticalHyperlinks() {
   return _removeParentheticalHyperlinks.apply(this, arguments);
 }
 function _removeParentheticalHyperlinks() {
-  _removeParentheticalHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-    var _t1;
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.p = _context10.n) {
+  _removeParentheticalHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+    var _t9;
+    return _regenerator().w(function (_context9) {
+      while (1) switch (_context9.p = _context9.n) {
         case 0:
-          if (!(parentheticalEntries.length === 0)) {
-            _context10.n = 1;
-            break;
-          }
-          setStatus("Scan the document for parenthetical citations first.");
-          return _context10.a(2);
-        case 1:
           setStatus("Removing hyperlinks...");
-          _context10.p = 2;
-          _context10.n = 3;
-          return Word.run(/*#__PURE__*/function () {
-            var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(context) {
-              var hyperlinks, removedCount, _iterator7, _step7, hyperlink, _iterator8, _step8, _loop, _ret, _t0;
-              return _regenerator().w(function (_context1) {
-                while (1) switch (_context1.p = _context1.n) {
-                  case 0:
-                    hyperlinks = context.document.body.hyperlinks;
-                    hyperlinks.load("items");
-                    _context1.n = 1;
-                    return context.sync();
-                  case 1:
-                    removedCount = 0;
-                    _iterator7 = _createForOfIteratorHelper(hyperlinks.items);
-                    try {
-                      for (_iterator7.s(); !(_step7 = _iterator7.n()).done;) {
-                        hyperlink = _step7.value;
-                        hyperlink.load("text");
-                      }
-                    } catch (err) {
-                      _iterator7.e(err);
-                    } finally {
-                      _iterator7.f();
-                    }
-                    _context1.n = 2;
-                    return context.sync();
-                  case 2:
-                    _iterator8 = _createForOfIteratorHelper(hyperlinks.items);
-                    _context1.p = 3;
-                    _loop = /*#__PURE__*/_regenerator().m(function _loop() {
-                      var hyperlink, normalizedText, range, replacementRange;
-                      return _regenerator().w(function (_context0) {
-                        while (1) switch (_context0.n) {
-                          case 0:
-                            hyperlink = _step8.value;
-                            normalizedText = normalizeText(hyperlink.text || "");
-                            if (normalizedText) {
-                              _context0.n = 1;
-                              break;
-                            }
-                            return _context0.a(2, 0);
-                          case 1:
-                            if (parentheticalEntries.some(function (entry) {
-                              return normalizeText(entry.citation) === normalizedText;
-                            })) {
-                              _context0.n = 2;
-                              break;
-                            }
-                            return _context0.a(2, 0);
-                          case 2:
-                            range = hyperlink.range;
-                            range.load("text");
-                            _context0.n = 3;
-                            return context.sync();
-                          case 3:
-                            replacementRange = range.insertText(range.text, Word.InsertLocation.replace);
-                            replacementRange.font.color = "Auto";
-                            replacementRange.font.underline = "None";
-                            _context0.n = 4;
-                            return context.sync();
-                          case 4:
-                            removedCount += 1;
-                          case 5:
-                            return _context0.a(2);
-                        }
-                      }, _loop);
-                    });
-                    _iterator8.s();
-                  case 4:
-                    if ((_step8 = _iterator8.n()).done) {
-                      _context1.n = 7;
-                      break;
-                    }
-                    return _context1.d(_regeneratorValues(_loop()), 5);
-                  case 5:
-                    _ret = _context1.v;
-                    if (!(_ret === 0)) {
-                      _context1.n = 6;
-                      break;
-                    }
-                    return _context1.a(3, 6);
-                  case 6:
-                    _context1.n = 4;
-                    break;
-                  case 7:
-                    _context1.n = 9;
-                    break;
-                  case 8:
-                    _context1.p = 8;
-                    _t0 = _context1.v;
-                    _iterator8.e(_t0);
-                  case 9:
-                    _context1.p = 9;
-                    _iterator8.f();
-                    return _context1.f(9);
-                  case 10:
-                    setStatus("Removed ".concat(removedCount, " hyperlink(s) from parenthetical citations."));
-                  case 11:
-                    return _context1.a(2);
-                }
-              }, _callee0, null, [[3, 8, 9, 10]]);
-            }));
-            return function (_x7) {
-              return _ref5.apply(this, arguments);
-            };
-          }());
-        case 3:
-          _context10.n = 5;
+          _context9.p = 1;
+          _context9.n = 2;
+          return removeAllHyperlinks();
+        case 2:
+          _context9.n = 4;
           break;
+        case 3:
+          _context9.p = 3;
+          _t9 = _context9.v;
+          setStatus("Unable to remove hyperlinks. ".concat(_t9 instanceof Error ? _t9.message : String(_t9)));
         case 4:
-          _context10.p = 4;
-          _t1 = _context10.v;
-          setStatus("Unable to remove hyperlinks. ".concat(_t1 instanceof Error ? _t1.message : String(_t1)));
-        case 5:
-          return _context10.a(2);
+          return _context9.a(2);
       }
-    }, _callee1, null, [[2, 4]]);
+    }, _callee9, null, [[1, 3]]);
   }));
   return _removeParentheticalHyperlinks.apply(this, arguments);
 }
@@ -757,55 +676,30 @@ function setStatus(message) {
     statusElement.textContent = message;
   }
 }
-function normalizeText(value) {
-  return value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
-}
-function isLikelyCaseCitation(value) {
-  var normalized = normalizeText(value);
-  if (!normalized) {
-    return false;
-  }
-  if (normalized.includes(" v. ") || normalized.includes(" v ")) {
-    return true;
-  }
-  return /\b\d{4}\b/.test(normalized);
-}
-function extractParentheticalCitations(text) {
-  var matches = text.match(/\(([^()]{1,120})\)/g) || [];
-  var uniqueMatches = new Set();
-  matches.forEach(function (match) {
-    var citation = normalizeText(match.slice(1, -1));
-    if (!citation || !/[A-Za-z0-9]/.test(citation)) {
-      return;
-    }
-    uniqueMatches.add(citation);
-  });
-  return Array.from(uniqueMatches);
-}
 function parseSourceDocument(_x2) {
   return _parseSourceDocument.apply(this, arguments);
 }
 function _parseSourceDocument() {
-  _parseSourceDocument = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(file) {
+  _parseSourceDocument = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(file) {
     var _zip$file, _zip$file2;
     var zip, documentXml, relationshipsXml, relationships, parser, documentDom, hyperlinks, citationMap, index, hyperlink, relationshipId, url, text;
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.n) {
+    return _regenerator().w(function (_context0) {
+      while (1) switch (_context0.n) {
         case 0:
-          _context11.n = 1;
+          _context0.n = 1;
           return jszip__WEBPACK_IMPORTED_MODULE_0___default().loadAsync(file);
         case 1:
-          zip = _context11.v;
-          _context11.n = 2;
+          zip = _context0.v;
+          _context0.n = 2;
           return (_zip$file = zip.file("word/document.xml")) === null || _zip$file === void 0 ? void 0 : _zip$file.async("string");
         case 2:
-          documentXml = _context11.v;
-          _context11.n = 3;
+          documentXml = _context0.v;
+          _context0.n = 3;
           return (_zip$file2 = zip.file("word/_rels/document.xml.rels")) === null || _zip$file2 === void 0 ? void 0 : _zip$file2.async("string");
         case 3:
-          relationshipsXml = _context11.v;
+          relationshipsXml = _context0.v;
           if (!(!documentXml || !relationshipsXml)) {
-            _context11.n = 4;
+            _context0.n = 4;
             break;
           }
           throw new Error("The selected file is not a valid Word document.");
@@ -819,16 +713,93 @@ function _parseSourceDocument() {
             hyperlink = hyperlinks[index];
             relationshipId = hyperlink.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
             url = relationshipId ? relationships.get(relationshipId) || "" : "";
-            text = normalizeText(getElementText(hyperlink));
-            if (text && url && isLikelyCaseCitation(text)) {
+            text = (0,_utils__WEBPACK_IMPORTED_MODULE_1__.normalizeText)(getElementText(hyperlink));
+            if (text && url && (0,_utils__WEBPACK_IMPORTED_MODULE_1__.isLikelyCaseCitation)(text)) {
               citationMap.set(text, url);
             }
           }
-          return _context11.a(2, citationMap);
+          return _context0.a(2, citationMap);
       }
-    }, _callee10);
+    }, _callee0);
   }));
   return _parseSourceDocument.apply(this, arguments);
+}
+function removeAllHyperlinks() {
+  return _removeAllHyperlinks.apply(this, arguments);
+}
+function _removeAllHyperlinks() {
+  _removeAllHyperlinks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    var _t0;
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.p = _context10.n) {
+        case 0:
+          setStatus("Removing all hyperlinks...");
+          _context10.p = 1;
+          _context10.n = 2;
+          return Word.run(/*#__PURE__*/function () {
+            var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(context) {
+              var body, ooxmlResult, originalOoxml, hyperlinkMatches, removedCount, strippedOoxml;
+              return _regenerator().w(function (_context1) {
+                while (1) switch (_context1.n) {
+                  case 0:
+                    body = context.document.body;
+                    ooxmlResult = body.getOoxml();
+                    _context1.n = 1;
+                    return context.sync();
+                  case 1:
+                    originalOoxml = ooxmlResult && ooxmlResult.value ? String(ooxmlResult.value) : "";
+                    if (originalOoxml) {
+                      _context1.n = 2;
+                      break;
+                    }
+                    setStatus("No document OOXML available to process.");
+                    return _context1.a(2);
+                  case 2:
+                    // Count <w:hyperlink ...> occurrences to report how many links we'll remove
+                    hyperlinkMatches = originalOoxml.match(/<w:hyperlink\b[^>]*>/g);
+                    removedCount = hyperlinkMatches ? hyperlinkMatches.length : 0;
+                    if (!(removedCount === 0)) {
+                      _context1.n = 3;
+                      break;
+                    }
+                    setStatus("No hyperlinks were found in the document.");
+                    return _context1.a(2);
+                  case 3:
+                    // Remove the hyperlink wrapper tags but keep inner runs (visible text)
+                    strippedOoxml = originalOoxml.replace(/<w:hyperlink\b[^>]*>/g, "").replace(/<\/w:hyperlink>/g, ""); // Remove the character style reference that causes blue/underline rendering
+                    strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*\/\>/g, "");
+                    // Also remove non-self-closing form if present
+                    strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*>\s*<\/w:rStyle>/g, "");
+
+                    // Replace entire body OOXML with cleaned version
+                    body.insertOoxml(strippedOoxml, Word.InsertLocation.replace);
+                    _context1.n = 4;
+                    return context.sync();
+                  case 4:
+                    setStatus("Removed ".concat(removedCount, " hyperlink(s) from the document."));
+                  case 5:
+                    return _context1.a(2);
+                }
+              }, _callee1);
+            }));
+            return function (_x6) {
+              return _ref4.apply(this, arguments);
+            };
+          }());
+        case 2:
+          _context10.n = 4;
+          break;
+        case 3:
+          _context10.p = 3;
+          _t0 = _context10.v;
+          setStatus("Unable to remove hyperlinks. ".concat(_t0 instanceof Error ? _t0.message : String(_t0)));
+          throw _t0;
+        case 4:
+          return _context10.a(2);
+      }
+    }, _callee10, null, [[1, 3]]);
+  }));
+  return _removeAllHyperlinks.apply(this, arguments);
 }
 function parseRelationships(relsXml) {
   var parser = new DOMParser();
@@ -897,7 +868,7 @@ module.exports = __webpack_require__.p + "76f0db1e4166204d3d84.svg";
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
 "use strict";
-module.exports = __webpack_require__.p + "2e7143e67922835493cf.css";
+module.exports = __webpack_require__.p + "118da4c04087d1546486.css";
 
 /***/ })
 

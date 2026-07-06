@@ -158,37 +158,7 @@ async function removeCaseLawHyperlinks() {
   setStatus("Removing hyperlinks...");
 
   try {
-    await Word.run(async (context) => {
-      const body = context.document.body as any;
-      const hyperlinks = body.hyperlinks;
-      hyperlinks.load("items");
-      await context.sync();
-
-      let removedCount = 0;
-
-      for (const hyperlink of hyperlinks.items) {
-        hyperlink.load("text");
-      }
-      await context.sync();
-
-      for (const hyperlink of hyperlinks.items) {
-        const normalizedText = normalizeText(hyperlink.text || "");
-        if (!normalizedText || !isLikelyCaseCitation(normalizedText)) {
-          continue;
-        }
-
-        const range = hyperlink.range;
-        range.load("text");
-        await context.sync();
-        const replacementRange = range.insertText(range.text, Word.InsertLocation.replace);
-        replacementRange.font.color = "Auto";
-        replacementRange.font.underline = "None";
-        await context.sync();
-        removedCount += 1;
-      }
-
-      setStatus(`Removed ${removedCount} hyperlink(s) from case-law citations.`);
-    });
+    await removeAllHyperlinks();
   } catch (error) {
     setStatus(`Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -274,48 +244,10 @@ async function addParentheticalHyperlinks() {
 }
 
 async function removeParentheticalHyperlinks() {
-  if (parentheticalEntries.length === 0) {
-    setStatus("Scan the document for parenthetical citations first.");
-    return;
-  }
-
   setStatus("Removing hyperlinks...");
 
   try {
-    await Word.run(async (context) => {
-      const body = context.document.body as any;
-      const hyperlinks = body.hyperlinks;
-      hyperlinks.load("items");
-      await context.sync();
-
-      let removedCount = 0;
-      for (const hyperlink of hyperlinks.items) {
-        hyperlink.load("text");
-      }
-      await context.sync();
-
-      for (const hyperlink of hyperlinks.items) {
-        const normalizedText = normalizeText(hyperlink.text || "");
-        if (!normalizedText) {
-          continue;
-        }
-
-        if (!parentheticalEntries.some((entry) => normalizeText(entry.citation) === normalizedText)) {
-          continue;
-        }
-
-        const range = hyperlink.range;
-        range.load("text");
-        await context.sync();
-        const replacementRange = range.insertText(range.text, Word.InsertLocation.replace);
-        replacementRange.font.color = "Auto";
-        replacementRange.font.underline = "None";
-        await context.sync();
-        removedCount += 1;
-      }
-
-      setStatus(`Removed ${removedCount} hyperlink(s) from parenthetical citations.`);
-    });
+    await removeAllHyperlinks();
   } catch (error) {
     setStatus(`Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -425,6 +357,50 @@ async function parseSourceDocument(file: File): Promise<CitationMap> {
   }
 
   return citationMap;
+}
+
+async function removeAllHyperlinks(): Promise<void> {
+  setStatus("Removing all hyperlinks...");
+
+  try {
+    await Word.run(async (context: Word.RequestContext) => {
+      const body = context.document.body as any;
+      const ooxmlResult = body.getOoxml();
+      await context.sync();
+
+      const originalOoxml = ooxmlResult && ooxmlResult.value ? String(ooxmlResult.value) : "";
+      if (!originalOoxml) {
+        setStatus("No document OOXML available to process.");
+        return;
+      }
+
+      // Count <w:hyperlink ...> occurrences to report how many links we'll remove
+      const hyperlinkMatches = originalOoxml.match(/<w:hyperlink\b[^>]*>/g);
+      const removedCount = hyperlinkMatches ? hyperlinkMatches.length : 0;
+
+      if (removedCount === 0) {
+        setStatus("No hyperlinks were found in the document.");
+        return;
+      }
+
+      // Remove the hyperlink wrapper tags but keep inner runs (visible text)
+      let strippedOoxml = originalOoxml.replace(/<w:hyperlink\b[^>]*>/g, "").replace(/<\/w:hyperlink>/g, "");
+
+      // Remove the character style reference that causes blue/underline rendering
+      strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*\/\>/g, "");
+      // Also remove non-self-closing form if present
+      strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*>\s*<\/w:rStyle>/g, "");
+
+      // Replace entire body OOXML with cleaned version
+      body.insertOoxml(strippedOoxml, Word.InsertLocation.replace);
+      await context.sync();
+
+      setStatus(`Removed ${removedCount} hyperlink(s) from the document.`);
+    });
+  } catch (err) {
+    setStatus(`Unable to remove hyperlinks. ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
 }
 
 function parseRelationships(relsXml: string): Map<string, string> {
