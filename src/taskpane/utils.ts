@@ -41,3 +41,23 @@ export function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+export function stripHtmlHyperlinks(html: string): string {
+  if (!html) return "";
+
+  // Replace anchor tags with their inner content
+  let result = html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, "$1");
+
+  // Remove any remaining HTML tags
+  result = result.replace(/<[^>]+>/g, "");
+
+  // Decode a handful of common HTML entities
+  result = result
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  return normalizeText(result);
+}
