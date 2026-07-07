@@ -15,12 +15,23 @@ install location.
 #>
 param(
     [int]$Port = 44399,
-    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'WordClerk\LocalServer'),
+    [string]$InstallDir = "",
     [switch]$DryRun,
     [switch]$ElevatedCertStep
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($InstallDir)) {
+    # $env:LOCALAPPDATA is Windows-only; this script is Windows-only in real use, but the
+    # -DryRun path is also exercised by CI smoke tests running cross-platform pwsh, so fall
+    # back to a harmless path instead of failing to even parse arguments there.
+    $InstallDir = if ($env:LOCALAPPDATA) {
+        Join-Path $env:LOCALAPPDATA 'WordClerk\LocalServer'
+    } else {
+        Join-Path ([System.IO.Path]::GetTempPath()) 'WordClerk\LocalServer'
+    }
+}
 
 function Test-IsAdmin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
