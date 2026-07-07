@@ -456,7 +456,7 @@ async function applyHyperlinksViaProvider() {
       for (const raw of candidates) {
         const parsed = parseCaseCitation(raw) || { raw };
         const match = await provider.lookupCitation(parsed);
-        if (!match) {
+        if (!match || !isSafeHyperlinkUrl(match.url)) {
           skippedCount += 1;
           continue;
         }
