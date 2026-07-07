@@ -59,6 +59,7 @@ Providers are plugins implementing `CitationProvider` in [src/taskpane/providers
 Built-in providers:
 - **CourtListener** ([courtListenerProvider.ts](src/taskpane/providers/courtListenerProvider.ts)) — Free Law Project's free, public case-law search. Works with no credentials; get an optional API token at [courtlistener.com/profile/api-token](https://www.courtlistener.com/profile/api-token/) to raise the (fairly low) anonymous rate limit.
 - **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](src/taskpane/providers/lexisNexisProvider.ts), [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts), [bloombergLawProvider.ts](src/taskpane/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so WordClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
+- **OpenCase** ([openCaseProvider.ts](src/taskpane/providers/openCaseProvider.ts)) — [OpenCase](https://www.opencase.com/) is an AI legal research assistant built as a Word add-in for U.S. legal professionals. As of this writing it has **no publicly documented developer API** (no equivalent to LexisNexis's or Thomson Reuters's developer portals turned up), so this provider uses the same configurable-endpoint OAuth2 client-credentials shape as the other enterprise providers as a starting point only — treat the token/search paths as placeholders and confirm real integration details directly with OpenCase before relying on this.
 - **USPTO Patent Center** ([usptoPatentCenterProvider.ts](src/taskpane/providers/usptoPatentCenterProvider.ts)) — **TODO, not implemented.** Registered as a placeholder (shows up in the provider list, always reports "not found" so citations are skipped) so the plugin wiring can be exercised end-to-end before a real Patent Center / PEDS integration is built for the Non-patent Literature workflow.
 
 ### Getting credentials for each provider
@@ -83,7 +84,12 @@ Built-in providers:
 2. Bloomberg provisions credentials through its Enterprise Console (an admin on your account downloads a Client ID and Secret there — see Bloomberg's [Web API Connectivity Policy](https://www.bloomberg.com/professional/support/api-library/) for what the console shows). Store the downloaded secret securely; per Bloomberg's policy these credentials expire after 18 months and will need to be refreshed then.
 3. Enter the Client ID, Secret, and the API base URL Bloomberg gives you into the Bloomberg Law fields on the Online Lookup tab.
 
-Because the three enterprise integrations are contract-gated and provisioned per customer, treat the exact field names/paths above as a starting point, not a guarantee — confirm specifics against the documentation your vendor rep provides.
+**OpenCase** (requires an existing OpenCase subscription):
+1. There is no self-service developer portal to point to (unlike the three above) — contact OpenCase directly (via [opencase.com](https://www.opencase.com/)) and ask your account contact whether/how programmatic API access is offered under your subscription.
+2. If they provide an API base URL and OAuth2 client credentials, enter them into the OpenCase fields on the Online Lookup tab the same way as the other enterprise providers.
+3. If OpenCase's actual integration doesn't match the OAuth2 client-credentials shape assumed here, [openCaseProvider.ts](src/taskpane/providers/openCaseProvider.ts) will need real changes, not just configuration — treat this provider as a scaffold to adapt once real details are known.
+
+Because the enterprise integrations are contract-gated (or, for OpenCase, not documented at all) and provisioned per customer, treat the exact field names/paths above as a starting point, not a guarantee — confirm specifics against the documentation your vendor rep provides.
 
 ## Security & IT review
 

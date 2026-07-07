@@ -2,6 +2,7 @@ import { parseCaseCitation, extractCaseCitations } from '../src/taskpane/provide
 import { CitationProviderRegistry } from '../src/taskpane/providers/registry';
 import { CourtListenerProvider } from '../src/taskpane/providers/courtListenerProvider';
 import { LexisNexisProvider } from '../src/taskpane/providers/lexisNexisProvider';
+import { OpenCaseProvider } from '../src/taskpane/providers/openCaseProvider';
 import { UsptoPatentCenterProvider } from '../src/taskpane/providers/usptoPatentCenterProvider';
 import { CitationProvider } from '../src/taskpane/providers/types';
 
@@ -258,6 +259,32 @@ describe('EnterpriseCitationProvider (LexisNexis as representative)', () => {
 
   test('rejects a non-HTTPS API base URL before ever attempting to connect', async () => {
     const provider = new LexisNexisProvider();
+    await expect(
+      provider.authenticate({ apiBaseUrl: 'http://insecure.example.com', clientId: 'id', clientSecret: 'secret' })
+    ).rejects.toThrow(/https/i);
+    expect(provider.isAuthenticated()).toBe(false);
+  });
+});
+
+describe('OpenCaseProvider (no public API documented -- same shape as the other enterprise providers)', () => {
+  test('rejects authenticate() when required fields are missing', async () => {
+    const provider = new OpenCaseProvider();
+    await expect(provider.authenticate({ apiBaseUrl: '', clientId: '', clientSecret: '' })).rejects.toThrow(
+      /Missing required field/
+    );
+  });
+
+  test('lookupCitation returns null (move on) when not authenticated, without throwing', async () => {
+    const provider: CitationProvider = new OpenCaseProvider();
+    await expect(provider.lookupCitation({ raw: EXAMPLE_CITATION })).resolves.toBeNull();
+  });
+
+  test('is not authenticated until authenticate() succeeds', () => {
+    expect(new OpenCaseProvider().isAuthenticated()).toBe(false);
+  });
+
+  test('rejects a non-HTTPS API base URL before ever attempting to connect', async () => {
+    const provider = new OpenCaseProvider();
     await expect(
       provider.authenticate({ apiBaseUrl: 'http://insecure.example.com', clientId: 'id', clientSecret: 'secret' })
     ).rejects.toThrow(/https/i);
