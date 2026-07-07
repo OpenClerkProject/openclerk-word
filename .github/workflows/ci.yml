@@ -148,7 +148,18 @@ jobs:
           grep -q "installer/serve-wordclerk.ps1" offline-package-list.txt
           grep -q "app/taskpane.html" offline-package-list.txt
           grep -q "app/commands.html" offline-package-list.txt
+          grep -q "app/vendor/office.js" offline-package-list.txt
+          grep -q "app/vendor/fabric.min.css" offline-package-list.txt
           grep -q " manifest.xml" offline-package-list.txt
+
+      - name: Verify no CDN references remain (must work with no internet)
+        run: |
+          set -e
+          unzip -p wordclerk-addin-offline.zip app/taskpane.html app/commands.html > /tmp/offline-html.txt
+          if grep -qE "appsforoffice\.microsoft\.com|res-1\.cdn\.office\.net" /tmp/offline-html.txt; then
+            echo "ERROR: offline package HTML still references Microsoft's CDN"
+            exit 1
+          fi
 
       - name: Verify manifest placeholders
         run: |

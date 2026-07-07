@@ -140,6 +140,7 @@ This installs a small local web server that:
 - **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
 - **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
 - **Runs hidden and starts automatically at login** (via a Scheduled Task named `WordClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
+- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
 
 See `scripts/local-server/serve-wordclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName WordClerkLocalServer`, then remove `%LOCALAPPDATA%\WordClerk\LocalServer`.
 
