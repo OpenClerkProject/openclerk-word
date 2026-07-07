@@ -42,7 +42,7 @@ Start the dev server and sideload the add-in into Word (desktop):
 npm run start
 ```
 
-This runs the webpack dev server and uses `office-addin-debugging` to sideload the manifest into Word for debugging.
+This runs the webpack dev server and uses `office-addin-debugging` to sideload the manifest into Word for debugging. Word opens with `testfile-generic.docx` (a small test document tracked in this repo) pre-loaded, instead of a blank document, so citation-related features have something to test against immediately.
 
 ## Scripts
 - `npm run build:dev` — build development bundle
@@ -223,6 +223,22 @@ powershell -ExecutionPolicy Bypass -File installer\install-wordclerk.ps1
 
 > **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installer is pure PowerShell.
 
+### Verifying a release download
+
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/wbarnha/WordClerk/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+
+**Checksum:**
+```powershell
+Get-FileHash wordclerk-addin.zip -Algorithm SHA256
+# Compare the hash against the matching line in SHA256SUMS
+```
+
+**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
+```bash
+gh attestation verify wordclerk-addin.zip --repo wbarnha/WordClerk
+```
+This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
+
 ### Option 2: Install from GitHub Actions workflow artifact
 1. Open the **Actions** tab in this repo.
 2. Select the latest successful **CI** workflow run.
@@ -250,4 +266,39 @@ This creates `wordclerk-addin.zip` at the repo root with the same contents as th
 
 ### Option 5: Clone the repository and install locally (development)
 See the [Development](#development) section below for instructions on running the add-in from a local dev server.
+
+### Option 6: Run fully offline (no internet connection required)
+
+Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need WordClerk to work with no network connection at all, use the offline package instead:
+
+1. Download `wordclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/wbarnha/WordClerk/releases).
+2. Extract it, then run the setup script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
+```
+
+3. Windows will prompt for administrator approval once (UAC) — this is only used to bind a self-signed HTTPS certificate to a single `127.0.0.1` port and is not required again after the first run.
+4. Restart Word.
+
+This installs a small local web server that:
+- **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
+- **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
+- **Runs hidden and starts automatically at login** (via a Scheduled Task named `WordClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
+- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
+
+See `scripts/local-server/serve-wordclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName WordClerkLocalServer`, then remove `%LOCALAPPDATA%\WordClerk\LocalServer`.
+
+## Self-hosting
+
+By default, production builds point the manifest at the project's GitHub Pages deployment (`https://wbarnha.github.io/WordClerk/`), so most users don't need to host anything themselves.
+
+If you'd rather serve the add-in content from your own infrastructure (an internal HTTPS server, Azure Static Web Apps, S3+CloudFront, etc. — useful for IT-managed rollouts that don't want to depend on GitHub Pages), set `WORDCLERK_HOST_URL` before building or packaging:
+
+```bash
+WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run build
+WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run package
+```
+
+This bakes your URL into both `dist/manifest.xml` and the packaged manifest, so the add-in fetches its taskpane, commands, and icons from your host instead of GitHub Pages. You're responsible for uploading the contents of `dist/` to that URL yourself — this repo's CI only deploys to GitHub Pages.
 

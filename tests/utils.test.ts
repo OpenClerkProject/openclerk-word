@@ -1,4 +1,9 @@
-import { normalizeText, isLikelyCaseCitation, extractParentheticalCitations } from '../src/taskpane/utils';
+import {
+  normalizeText,
+  isLikelyCaseCitation,
+  extractParentheticalCitations,
+  isSafeHyperlinkUrl,
+} from '../src/taskpane/utils';
 
 describe('Citation helpers', () => {
   test('normalizeText removes NBSP and collapses spaces', () => {
@@ -18,5 +23,28 @@ describe('Citation helpers', () => {
     const result = extractParentheticalCitations(text);
     expect(result).toContain('Smith v. Jones');
     expect(result).toContain('2020');
+  });
+});
+
+describe('isSafeHyperlinkUrl', () => {
+  test('allows http and https URLs', () => {
+    expect(isSafeHyperlinkUrl('http://example.com')).toBe(true);
+    expect(isSafeHyperlinkUrl('https://example.com/case?id=1')).toBe(true);
+  });
+
+  test('allows mailto URLs', () => {
+    expect(isSafeHyperlinkUrl('mailto:someone@example.com')).toBe(true);
+  });
+
+  test('rejects javascript/vbscript/data/file schemes', () => {
+    expect(isSafeHyperlinkUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeHyperlinkUrl('vbscript:msgbox(1)')).toBe(false);
+    expect(isSafeHyperlinkUrl('data:text/html,<script>alert(1)</script>')).toBe(false);
+    expect(isSafeHyperlinkUrl('file:///etc/passwd')).toBe(false);
+  });
+
+  test('rejects empty or whitespace-only input', () => {
+    expect(isSafeHyperlinkUrl('')).toBe(false);
+    expect(isSafeHyperlinkUrl('   ')).toBe(false);
   });
 });

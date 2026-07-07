@@ -5,7 +5,10 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://wbarnha.github.io/WordClerk/"; // GitHub Pages production deployment
+// Defaults to the project's GitHub Pages deployment. To self-host instead (e.g. for an
+// internal/IT-managed deployment), set WORDCLERK_HOST_URL to your own HTTPS URL before
+// running `npm run build`/`npm run package` -- see README.md > "Self-hosting".
+const urlProd = (process.env.WORDCLERK_HOST_URL || "https://wbarnha.github.io/WordClerk/").replace(/\/*$/, "/");
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -51,6 +54,11 @@ module.exports = async (env, options) => {
       ],
     },
     plugins: [
+      new HtmlWebpackPlugin({
+        filename: "index.html",
+        template: "./src/index.html",
+        chunks: [],
+      }),
       new HtmlWebpackPlugin({
         filename: "taskpane.html",
         template: "./src/taskpane/taskpane.html",

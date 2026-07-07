@@ -33,6 +33,26 @@ export function extractParentheticalCitations(text: string): string[] {
   return Array.from(uniqueMatches);
 }
 
+const ALLOWED_HYPERLINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+
+/**
+ * Only http(s)/mailto URLs are safe to write into a Word hyperlink here -- source .docx files
+ * come from whoever the user chooses to import, and parenthetical URLs are free-form user input,
+ * so schemes like javascript:/vbscript:/file: must be rejected before insertHyperlink/insertHtml.
+ */
+export function isSafeHyperlinkUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed, "https://placeholder.invalid/");
+    return ALLOWED_HYPERLINK_SCHEMES.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export function escapeHtml(str: string): string {
   return String(str)
     .replace(/&/g, "&amp;")
