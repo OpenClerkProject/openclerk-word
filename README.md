@@ -122,3 +122,16 @@ This creates `wordclerk-addin.zip` at the repo root with the same contents as th
 ### Option 5: Clone the repository and install locally (development)
 See the [Development](#development) section below for instructions on running the add-in from a local dev server.
 
+## Self-hosting
+
+By default, production builds point the manifest at the project's GitHub Pages deployment (`https://wbarnha.github.io/WordClerk/`), so most users don't need to host anything themselves.
+
+If you'd rather serve the add-in content from your own infrastructure (an internal HTTPS server, Azure Static Web Apps, S3+CloudFront, etc. — useful for IT-managed rollouts that don't want to depend on GitHub Pages), set `WORDCLERK_HOST_URL` before building or packaging:
+
+```bash
+WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run build
+WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run package
+```
+
+This bakes your URL into both `dist/manifest.xml` and the packaged manifest, so the add-in fetches its taskpane, commands, and icons from your host instead of GitHub Pages. You're responsible for uploading the contents of `dist/` to that URL yourself — this repo's CI only deploys to GitHub Pages.
+
