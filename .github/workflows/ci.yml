@@ -122,8 +122,8 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libxml2-utils
           xmllint --noout manifest.xml
-          echo "Running office-addin-manifest validation (via npx)"
-          npx --yes office-addin-manifest validate manifest.xml
+          echo "Running office-addin-manifest validation (using the version locked in package-lock.json)"
+          npx --no-install office-addin-manifest validate manifest.xml
 
       - name: Package add-in
         run: npm run package
