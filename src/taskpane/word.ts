@@ -169,8 +169,9 @@ async function scanParentheticalCitations() {
 
   try {
     await Word.run(async (context) => {
-      const bodyText = (context.document.body as any).getText();
+      context.document.body.load("text");
       await context.sync();
+      const bodyText = context.document.body.text;
       const citations = extractParentheticalCitations(bodyText);
       parentheticalEntries = citations.map((citation, index) => ({
         citation,
