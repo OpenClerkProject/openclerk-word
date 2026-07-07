@@ -222,7 +222,7 @@ jobs:
 
           echo "Uploading package to Partner Center API URL"
           curl -v -X POST \
-            -H "Authorization: ******" \
+            -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/zip" \
             --data-binary @./wordclerk-addin.zip \
             "${{ secrets.PARTNER_CENTER_API_URL }}" -o partner_response.json || true
