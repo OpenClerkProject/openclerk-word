@@ -94,6 +94,22 @@ powershell -ExecutionPolicy Bypass -File installer\install-wordclerk.ps1
 
 > **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installer is pure PowerShell.
 
+### Verifying a release download
+
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/wbarnha/WordClerk/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+
+**Checksum:**
+```powershell
+Get-FileHash wordclerk-addin.zip -Algorithm SHA256
+# Compare the hash against the matching line in SHA256SUMS
+```
+
+**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
+```bash
+gh attestation verify wordclerk-addin.zip --repo wbarnha/WordClerk
+```
+This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
+
 ### Option 2: Install from GitHub Actions workflow artifact
 1. Open the **Actions** tab in this repo.
 2. Select the latest successful **CI** workflow run.
