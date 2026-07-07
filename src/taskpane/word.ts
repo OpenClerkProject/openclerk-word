@@ -8,10 +8,23 @@
 /* global document, Office, Word */
 
 import JSZip from "jszip";
-import { normalizeText, isLikelyCaseCitation, extractParentheticalCitations, escapeHtml } from "./utils";
+import {
+  normalizeText,
+  isLikelyCaseCitation,
+  extractParentheticalCitations,
+  escapeHtml,
+  isSafeHyperlinkUrl,
+} from "./utils";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
+
+// A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
+// decompress to a huge amount of data in memory ("zip bomb") and hang or crash the taskpane.
+// Legitimate citation-source documents are always small, so these caps are generous in practice.
+const MAX_SOURCE_FILE_BYTES = 20 * 1024 * 1024; // 20 MB compressed upload
+const MAX_ZIP_ENTRY_COUNT = 500;
+const MAX_DECOMPRESSED_XML_BYTES = 50 * 1024 * 1024; // 50 MB per extracted XML part
 
 let sourceCitationMap: CitationMap | null = null;
 let parentheticalEntries: ParentheticalEntry[] = [];
@@ -98,54 +111,54 @@ async function applyCaseLawHyperlinksFromSource() {
 
   try {
     await Word.run(async (context) => {
-      let appliedCount = 0;
-      const citationEntries = Array.from(sourceCitationMap!.entries());
+      // Batch all searches/loads/inserts into a handful of context.sync() calls instead of a
+      // few per citation -- a document with 50-100+ citations previously meant 200-400+
+      // sequential round-trips, which is enough to make the taskpane visibly freeze.
+      const citationEntries = Array.from(sourceCitationMap!.entries()).filter(
+        ([citationText, url]) => citationText && url && isSafeHyperlinkUrl(url)
+      );
 
-      for (const [citationText, url] of citationEntries) {
-        if (!citationText || !url) {
-          continue;
-        }
+      const searches = citationEntries.map(([citationText, url]) => ({
+        url,
+        results: context.document.body.search(citationText, { matchCase: false, matchWholeWord: false }),
+      }));
+      searches.forEach((entry) => entry.results.load("items"));
+      await context.sync();
 
-        const results = context.document.body.search(citationText, {
-          matchCase: false,
-          matchWholeWord: false,
-        });
-        results.load("items");
-        await context.sync();
-
-        for (const item of results.items) {
+      const matchedItems: { item: Word.Range; url: string }[] = [];
+      for (const entry of searches) {
+        for (const item of entry.results.items) {
           item.load("text");
-        }
-        await context.sync();
-
-        for (const item of results.items) {
-          const normalizedText = normalizeText(item.text || "");
-          if (!normalizedText || !isLikelyCaseCitation(normalizedText)) {
-            continue;
-          }
-          const hyperlinks = item.hyperlinks;
-          hyperlinks.load("items");
-          await context.sync();
-
-          if (hyperlinks.items.length > 0) {
-            continue;
-          }
-
-          if (typeof (item as any).insertHyperlink === "function") {
-            (item as any).insertHyperlink(url, normalizedText, Word.InsertLocation.replace);
-            await context.sync();
-          } else if (typeof (item as any).insertHtml === "function") {
-            const html = `<a href="${escapeHtml(url)}">${escapeHtml(normalizedText)}</a>`;
-            (item as any).insertHtml(html, Word.InsertLocation.replace);
-            await context.sync();
-          } else {
-            // Last-resort: replace with plain text (no hyperlink)
-            item.insertText(normalizedText, Word.InsertLocation.replace);
-            await context.sync();
-          }
-          appliedCount += 1;
+          matchedItems.push({ item, url: entry.url });
         }
       }
+      await context.sync();
+
+      const candidates = matchedItems.filter(({ item }) => {
+        const normalizedText = normalizeText(item.text || "");
+        return normalizedText && isLikelyCaseCitation(normalizedText);
+      });
+      candidates.forEach(({ item }) => item.hyperlinks.load("items"));
+      await context.sync();
+
+      let appliedCount = 0;
+      for (const { item, url } of candidates) {
+        if (item.hyperlinks.items.length > 0) {
+          continue;
+        }
+        const normalizedText = normalizeText(item.text || "");
+        if (typeof (item as any).insertHyperlink === "function") {
+          (item as any).insertHyperlink(url, normalizedText, Word.InsertLocation.replace);
+        } else if (typeof (item as any).insertHtml === "function") {
+          const html = `<a href="${escapeHtml(url)}">${escapeHtml(normalizedText)}</a>`;
+          (item as any).insertHtml(html, Word.InsertLocation.replace);
+        } else {
+          // Last-resort: replace with plain text (no hyperlink)
+          item.insertText(normalizedText, Word.InsertLocation.replace);
+        }
+        appliedCount += 1;
+      }
+      await context.sync();
 
       setStatus(`Added ${appliedCount} hyperlink(s) to matching case-law citations.`);
     });
@@ -200,42 +213,42 @@ async function addParentheticalHyperlinks() {
 
   try {
     await Word.run(async (context) => {
-      let addedCount = 0;
-      for (const entry of parentheticalEntries) {
-        const url = entry.url.trim();
-        if (!url) {
-          continue;
-        }
+      const validEntries = parentheticalEntries
+        .map((entry) => ({ ...entry, url: entry.url.trim() }))
+        .filter((entry) => entry.url && isSafeHyperlinkUrl(entry.url));
 
-        const results = context.document.body.search(entry.citation, {
-          matchCase: false,
-          matchWholeWord: false,
-        });
-        results.load("items");
-        await context.sync();
+      const searches = validEntries.map((entry) => ({
+        entry,
+        results: context.document.body.search(entry.citation, { matchCase: false, matchWholeWord: false }),
+      }));
+      searches.forEach((s) => s.results.load("items"));
+      await context.sync();
 
-        for (const item of results.items) {
-          const hyperlinks = item.hyperlinks;
-          hyperlinks.load("items");
-          await context.sync();
-
-          if (hyperlinks.items.length > 0) {
-            continue;
-          }
-          if (typeof (item as any).insertHyperlink === "function") {
-            (item as any).insertHyperlink(url, entry.citation, Word.InsertLocation.replace);
-            await context.sync();
-          } else if (typeof (item as any).insertHtml === "function") {
-            const html = `<a href="${escapeHtml(url)}">${escapeHtml(entry.citation)}</a>`;
-            (item as any).insertHtml(html, Word.InsertLocation.replace);
-            await context.sync();
-          } else {
-            item.insertText(entry.citation, Word.InsertLocation.replace);
-            await context.sync();
-          }
-          addedCount += 1;
+      const matchedItems: { item: Word.Range; entry: ParentheticalEntry }[] = [];
+      for (const s of searches) {
+        for (const item of s.results.items) {
+          matchedItems.push({ item, entry: s.entry });
         }
       }
+      matchedItems.forEach(({ item }) => item.hyperlinks.load("items"));
+      await context.sync();
+
+      let addedCount = 0;
+      for (const { item, entry } of matchedItems) {
+        if (item.hyperlinks.items.length > 0) {
+          continue;
+        }
+        if (typeof (item as any).insertHyperlink === "function") {
+          (item as any).insertHyperlink(entry.url, entry.citation, Word.InsertLocation.replace);
+        } else if (typeof (item as any).insertHtml === "function") {
+          const html = `<a href="${escapeHtml(entry.url)}">${escapeHtml(entry.citation)}</a>`;
+          (item as any).insertHtml(html, Word.InsertLocation.replace);
+        } else {
+          item.insertText(entry.citation, Word.InsertLocation.replace);
+        }
+        addedCount += 1;
+      }
+      await context.sync();
 
       setStatus(`Added ${addedCount} hyperlink(s) to parenthetical citations.`);
     });
@@ -326,9 +339,23 @@ function setStatus(message: string) {
 }
 
 async function parseSourceDocument(file: File): Promise<CitationMap> {
+  if (file.size > MAX_SOURCE_FILE_BYTES) {
+    throw new Error(
+      `File is too large (${Math.round(file.size / (1024 * 1024))} MB). The maximum supported size is ${
+        MAX_SOURCE_FILE_BYTES / (1024 * 1024)
+      } MB.`
+    );
+  }
+
   const zip = await JSZip.loadAsync(file);
-  const documentXml = await zip.file("word/document.xml")?.async("string");
-  const relationshipsXml = await zip.file("word/_rels/document.xml.rels")?.async("string");
+
+  const entryCount = Object.keys(zip.files).length;
+  if (entryCount > MAX_ZIP_ENTRY_COUNT) {
+    throw new Error("The selected file contains an unexpectedly large number of entries and was rejected.");
+  }
+
+  const documentXml = await readZipEntryWithLimit(zip, "word/document.xml");
+  const relationshipsXml = await readZipEntryWithLimit(zip, "word/_rels/document.xml.rels");
 
   if (!documentXml || !relationshipsXml) {
     throw new Error("The selected file is not a valid Word document.");
@@ -352,12 +379,26 @@ async function parseSourceDocument(file: File): Promise<CitationMap> {
     const url = relationshipId ? relationships.get(relationshipId) || "" : "";
     const text = normalizeText(getElementText(hyperlink));
 
-    if (text && url && isLikelyCaseCitation(text)) {
+    if (text && url && isLikelyCaseCitation(text) && isSafeHyperlinkUrl(url)) {
       citationMap.set(text, url);
     }
   }
 
   return citationMap;
+}
+
+// Reads a zip entry as text, aborting if the decompressed content is unexpectedly large --
+// a defense-in-depth backstop against zip bombs on top of the whole-file and entry-count caps.
+async function readZipEntryWithLimit(zip: JSZip, path: string): Promise<string | undefined> {
+  const entry = zip.file(path);
+  if (!entry) {
+    return undefined;
+  }
+  const content = await entry.async("string");
+  if (content.length > MAX_DECOMPRESSED_XML_BYTES) {
+    throw new Error("The selected file's contents are unexpectedly large and were rejected.");
+  }
+  return content;
 }
 
 async function removeAllHyperlinks(): Promise<void> {
