@@ -22,6 +22,7 @@
     "signout": "office-addin-dev-settings m365-account logout",
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
+    "recover:start": "office-addin-dev-settings clear manifest.xml && office-addin-debugging stop manifest.xml && office-addin-debugging start manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js"

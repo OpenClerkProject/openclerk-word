@@ -36,6 +36,7 @@ This runs the webpack dev server and uses `office-addin-debugging` to sideload t
 - `npm run build` — production build
 - `npm run convert-logos` — convert `dist/assets/logo-filled.svg` into PNG variants (16/32/80px)
 - `npm run start` — start dev server and sideload into Word
+- `npm run recover:start` — clear stale Office dev settings, then stop and restart sideload debugging
 
 ## Notes
 - If icons in the manifest are SVG and Word rejects the manifest, convert or reference PNGs instead.
