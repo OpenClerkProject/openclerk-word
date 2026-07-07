@@ -26,6 +26,12 @@ function createArchive() {
     archive.file(manifestPath, { name: 'manifest.xml' });
     archive.directory(distPath, 'dist');
     archive.directory(assetsPath, 'assets');
+    archive.file(path.join(repoRoot, 'scripts', 'install-wordclerk.js'), {
+      name: 'installer/install-wordclerk.js',
+    });
+    archive.file(path.join(repoRoot, 'scripts', 'install-wordclerk.ps1'), {
+      name: 'installer/install-wordclerk.ps1',
+    });
     archive.finalize();
   });
 }

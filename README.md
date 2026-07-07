@@ -37,6 +37,8 @@ This runs the webpack dev server and uses `office-addin-debugging` to sideload t
 - `npm run convert-logos` — convert `dist/assets/logo-filled.svg` into PNG variants (16/32/80px)
 - `npm run start` — start dev server and sideload into Word
 - `npm run recover:start` — clear stale Office dev settings, then stop and restart sideload debugging
+- `npm run install:addin` — install the manifest into the default Office WEF manifest folder
+- `npm run install:addin:dry-run` — validate installer behavior without writing files
 
 ## Notes
 - If icons in the manifest are SVG and Word rejects the manifest, convert or reference PNGs instead.
@@ -84,6 +86,8 @@ This creates `wordclerk-addin.zip` at the repo root, which contains:
 - `manifest.xml`
 - `dist`
 - `assets`
+- `installer/install-wordclerk.js`
+- `installer/install-wordclerk.ps1`
 
 You can then upload the `manifest.xml` file to Word from `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
 
@@ -95,6 +99,7 @@ powershell -ExecutionPolicy Bypass -File scripts/setup-local-test.ps1
 ```
 
 That script installs dependencies, builds the add-in, and packages `wordclerk-addin.zip`.
+The generated package also includes installer scripts that can copy the manifest into Word's local WEF folder.
 
 After the script completes, run:
 

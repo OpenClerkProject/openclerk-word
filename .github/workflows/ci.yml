@@ -57,9 +57,46 @@ jobs:
       - name: Run tests
         run: npm test
 
+  installer-smoke:
+    name: Installer Smoke
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package add-in
+        run: npm run package
+
+      - name: Verify package contents include installer assets
+        run: |
+          set -e
+          unzip -l wordclerk-addin.zip | tee package-list.txt
+          grep -q "installer/install-wordclerk.js" package-list.txt
+          grep -q "installer/install-wordclerk.ps1" package-list.txt
+          grep -q "manifest.xml" package-list.txt
+
+      - name: Installer dry-run smoke test
+        run: npm run install:addin:dry-run
+
+      - name: Installer copy smoke test
+        run: |
+          set -e
+          node scripts/install-wordclerk.js --manifest manifest.xml --target .installer-test/wef
+          test -f .installer-test/wef/wordclerk-manifest.xml
+
   publish:
     name: Publish Add-in
-    needs: [build, test]
+    needs: [build, test, installer-smoke]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
