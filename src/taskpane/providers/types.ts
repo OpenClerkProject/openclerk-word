@@ -14,6 +14,8 @@ export interface ParsedCitation {
   volume?: string;
   reporter?: string;
   page?: string;
+  /** Pinpoint page/range, e.g. "496" or "705-06" in "..., 490, 496 (1980)". */
+  pincite?: string;
   court?: string;
   year?: string;
 }

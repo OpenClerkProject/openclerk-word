@@ -26,6 +26,76 @@ describe('parseCaseCitation', () => {
   });
 });
 
+describe('parseCaseCitation: Bluebook format coverage', () => {
+  test('U.S. Reports citation with only a year in the parenthetical', () => {
+    expect(parseCaseCitation('Brown v. Board of Education, 347 U.S. 483 (1954)')).toEqual({
+      raw: 'Brown v. Board of Education, 347 U.S. 483 (1954)',
+      caseName: 'Brown v. Board of Education',
+      volume: '347',
+      reporter: 'U.S.',
+      page: '483',
+      year: '1954',
+    });
+  });
+
+  test('single-page pincite (a page range) is captured separately from the first page', () => {
+    const parsed = parseCaseCitation('United States v. Nixon, 418 U.S. 683, 705-06 (1974)');
+    expect(parsed).toMatchObject({
+      caseName: 'United States v. Nixon',
+      volume: '418',
+      reporter: 'U.S.',
+      page: '683',
+      pincite: '705-06',
+      year: '1974',
+    });
+  });
+
+  test('single-page (non-range) pincite', () => {
+    const parsed = parseCaseCitation('Norfolk & W. Ry. Co. v. Liepelt, 444 U.S. 490, 496 (1980)');
+    expect(parsed).toMatchObject({ page: '490', pincite: '496', year: '1980' });
+  });
+
+  test('regional reporter (N.E.) with a court-and-year parenthetical', () => {
+    const parsed = parseCaseCitation('Palsgraf v. Long Island R.R. Co., 162 N.E. 99 (N.Y. 1928)');
+    expect(parsed).toMatchObject({
+      caseName: 'Palsgraf v. Long Island R.R. Co.',
+      volume: '162',
+      reporter: 'N.E.',
+      page: '99',
+      court: 'N.Y.',
+      year: '1928',
+    });
+  });
+
+  test('multi-word reporter (F. Supp.) with a multi-word court abbreviation', () => {
+    const parsed = parseCaseCitation('Hall v. Baxter Healthcare Corp., 947 F. Supp. 1387 (D. Or. 1996)');
+    expect(parsed).toMatchObject({
+      reporter: 'F. Supp.',
+      page: '1387',
+      court: 'D. Or.',
+      year: '1996',
+    });
+  });
+
+  test('regional reporter with a space before the series digit (So. 2d)', () => {
+    const parsed = parseCaseCitation('Doe v. Roe, 955 So. 2d 425 (Fla. 2007)');
+    expect(parsed).toMatchObject({ reporter: 'So. 2d', page: '425', court: 'Fla.', year: '2007' });
+  });
+
+  test('reporter series abbreviation with no internal space (F.3d)', () => {
+    const parsed = parseCaseCitation('Smith v. Jones, 123 F.3d 456');
+    expect(parsed).toMatchObject({ reporter: 'F.3d', page: '456' });
+    expect(parsed?.year).toBeUndefined();
+    expect(parsed?.court).toBeUndefined();
+  });
+
+  test('known limitation: nominative reporters in a parenthetical before the page are not parsed', () => {
+    // "5 U.S. (1 Cranch) 137" -- the reporter segment can't skip over the parenthetical
+    // nominative-reporter aside, so this returns null (skipped) rather than a wrong match.
+    expect(parseCaseCitation('Marbury v. Madison, 5 U.S. (1 Cranch) 137 (1803)')).toBeNull();
+  });
+});
+
 describe('extractCaseCitations', () => {
   test('finds a full citation embedded in surrounding prose', () => {
     const text = `The court's holding in ${EXAMPLE_CITATION} affects the collateral source rule.`;
@@ -43,6 +113,20 @@ describe('extractCaseCitations', () => {
 
   test('returns an empty array when no citation-shaped text is present', () => {
     expect(extractCaseCitations('Nothing to see here.')).toEqual([]);
+  });
+
+  test('captures a pincite as part of the extracted citation', () => {
+    const text = 'As held in United States v. Nixon, 418 U.S. 683, 705-06 (1974), executive privilege is not absolute.';
+    expect(extractCaseCitations(text)).toContain('United States v. Nixon, 418 U.S. 683, 705-06 (1974)');
+  });
+
+  test('finds multiple distinct citations in one passage without merging or dropping them', () => {
+    const text =
+      "Brown v. Board of Education, 347 U.S. 483 (1954), overruled Plessy v. Ferguson, 163 U.S. 537 (1896).";
+    const results = extractCaseCitations(text);
+    expect(results).toContain('Brown v. Board of Education, 347 U.S. 483 (1954)');
+    expect(results).toContain('Plessy v. Ferguson, 163 U.S. 537 (1896)');
+    expect(results).toHaveLength(2);
   });
 });
 
@@ -170,6 +254,14 @@ describe('EnterpriseCitationProvider (LexisNexis as representative)', () => {
 
   test('is not authenticated until authenticate() succeeds', () => {
     expect(new LexisNexisProvider().isAuthenticated()).toBe(false);
+  });
+
+  test('rejects a non-HTTPS API base URL before ever attempting to connect', async () => {
+    const provider = new LexisNexisProvider();
+    await expect(
+      provider.authenticate({ apiBaseUrl: 'http://insecure.example.com', clientId: 'id', clientSecret: 'secret' })
+    ).rejects.toThrow(/https/i);
+    expect(provider.isAuthenticated()).toBe(false);
   });
 });
 

@@ -4,6 +4,8 @@
 
 WordClerk is a Word add-in (task pane) for applying and removing hyperlinks to case-law and parenthetical citations.
 
+> **Bringing this to IT for approval?** Start with [Security & IT review](#security--it-review) — it has a one-page summary, a data-flow table, a plain-English permissions breakdown, and a centralized-deployment path, written for a security reviewer rather than a developer.
+
 ## Development
 
 Prerequisites
@@ -85,13 +87,57 @@ Because the three enterprise integrations are contract-gated and provisioned per
 
 ## Security & IT review
 
-WordClerk has no backend server of its own — it's static HTML/JS/CSS loaded into a Word task pane (see `npm run start`, which just serves `dist/` and sideloads `manifest.xml`). This keeps the data-flow story simple to audit:
+### One-page summary
 
-- **Outbound network calls are limited to two things**, both easy to grep for: (1) the citation lookup providers under [src/taskpane/providers/](src/taskpane/providers/), each of which only calls the single host in its `API_BASE`/base-URL field, and (2) nothing else — the file-parsing and parenthetical-citation workflows never leave the machine.
-- **Credentials are held in memory only**, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](src/taskpane/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any WordClerk-controlled server, and are cleared by "Disconnect" or when the task pane is closed/reloaded.
-- **No telemetry or analytics** are collected by the add-in itself.
-- **`manifest.xml`'s `<AppDomains>`** declares every external domain WordClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
-- The whole add-in is open source under this repository, so IT/security review doesn't have to take any of the above on faith — it can be verified directly by reading `src/taskpane/`.
+- **What it is:** a Word task-pane add-in (static HTML/JS/CSS rendered inside Word's built-in browser control). It is **not** a hosted web app, has no backend server of its own, no user accounts, and no database.
+- **What it touches:** only the Word document that is currently open, and only when the user clicks a button. It never scans other files, other Office apps, mail, or the file system beyond a single `.docx` the user explicitly picks from a file-open dialog.
+- **What leaves the machine, by default:** nothing. Two of the add-in's three workflows (**Case Law** file-parsing and **Non-patent Literature** parentheticals) make zero network calls, ever.
+- **What can leave the machine, opt-in only:** if a user turns on the **Online Lookup** tab, short citation strings (not document content) are sent over HTTPS to whichever single lookup provider that user selects and connects. See the data-flow table below for exactly what's sent where.
+- **Source & license:** fully open source in this repository under the MIT license (see [package.json](package.json)); every claim in this section can be checked directly against [src/taskpane/](src/taskpane/) rather than taken on faith.
+- **Dependencies:** `npm audit --omit=dev` currently reports **0 known vulnerabilities** in production dependencies; versions are pinned via `package-lock.json` and CI (`npm ci`) installs the exact locked tree on every build.
+- **Distribution:** no auto-update mechanism reaches out to any WordClerk-controlled service. Installing or upgrading is something your organization does deliberately (see [Centralized deployment](#centralized-deployment-it-managed-rollout) below), not something that happens silently in the background.
+
+### Data flow, by feature
+
+| Feature (tab) | Network calls? | What's sent | Where | Trigger |
+| --- | --- | --- | --- | --- |
+| **Case Law** (apply hyperlinks from a source `.docx`) | None | Nothing — the source file is parsed entirely in-browser with [JSZip](https://www.npmjs.com/package/jszip) | N/A | User clicks "Apply hyperlinks" |
+| **Case Law** (remove hyperlinks) | None | Nothing — edits the open document's OOXML in place | N/A | User clicks "Remove hyperlinks" |
+| **Non-patent Literature** (scan/add/remove parentheticals) | None | Nothing — citations are extracted from the open document locally; URLs are typed in by the user | N/A | User clicks Scan / Add / Remove |
+| **Online Lookup** — CourtListener | Yes (opt-in) | The **individual matched citation string** (e.g. `"Norfolk & W. Ry. Co. v. Liepelt, 444 U.S. 490 (U.S.Ill., 1980)"`) — never the surrounding document text — plus an API token if one was entered | `https://www.courtlistener.com` only | User clicks "Scan & hyperlink via API" with CourtListener selected |
+| **Online Lookup** — LexisNexis / Westlaw / Bloomberg Law | Yes (opt-in) | The same per-citation string, plus an OAuth2 bearer token obtained from the credentials the user entered | The API base URL *that user typed in*, from their firm's existing vendor contract | User clicks "Connect", then "Scan & hyperlink via API" |
+
+The extraction that produces those per-citation strings (`extractCaseCitations` in [citationParser.ts](src/taskpane/providers/citationParser.ts)) runs entirely inside the Word document object model, in-browser; only the short matched substrings — never `context.document.body.getText()`'s full output — are ever passed to `fetch()`. That's checkable directly: every network call in the add-in lives in [src/taskpane/providers/](src/taskpane/providers/) and nowhere else.
+
+### Permissions requested
+
+The manifest requests exactly one Office permission: `<Permissions>ReadWriteDocument</Permissions>` (see [manifest.xml](manifest.xml)). In plain English, that grants the add-in the ability to read and edit the currently open Word document through the Office JavaScript API — nothing else. It does **not** grant access to: other open documents, other Office apps (Outlook, Excel, Teams), the file system, the network in general (browser same-origin/CORS rules still apply to any `fetch()` call), or any data outside the current document. This is the lowest permission tier Word add-ins offer above read-only.
+
+### Credential handling
+
+- Credential inputs are rendered as password-masked fields (`<input type="password">`) for every secret-typed field (API tokens, client secrets) — see `renderProviderPanel` in [word.ts](src/taskpane/word.ts).
+- Credentials are held in memory only, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](src/taskpane/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any WordClerk-controlled server, and are cleared by clicking "Disconnect" or by closing/reloading the task pane.
+- Enterprise provider API base URLs are required to start with `https://` — WordClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](src/taskpane/providers/base.ts)).
+- **No telemetry or analytics** are collected by the add-in itself, successful or not.
+- **`manifest.xml`'s `<AppDomains>`** declares every external domain WordClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain at the network/firewall level, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
+
+### Centralized deployment (IT-managed rollout)
+
+Rather than each user sideloading the manifest individually (the default developer flow described above), IT can push WordClerk to specific users or groups — and control updates — through the **integrated apps** feature of the Microsoft 365 admin center:
+
+1. In the [Microsoft 365 admin center](https://admin.microsoft.com), go to **Settings → Integrated apps**, then **Upload custom apps**.
+2. Upload the `manifest.xml` produced by `npm run package` (or a release asset — see [Download and install from GitHub](#download-and-install-from-github) below) and choose which users/groups it's deployed to (`Everyone`, specific users/groups, or just yourself for a pilot).
+3. When a new version is approved, IT re-uploads the updated manifest/package and clicks **Update** — end users never see an unreviewed, unapproved version.
+
+See Microsoft's own docs for the full process and requirements: [Deploy add-ins in the Microsoft 365 admin center](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/manage-deployment-of-add-ins) and [Requirements for centralized deployment](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/centralized-deployment-of-add-ins).
+
+### Frequently asked (by IT reviewers)
+
+- **Does it ever send a whole document anywhere?** No. The only network calls the add-in ever makes are the per-citation lookups described in the data-flow table above; full document content is never transmitted, by any workflow, under any configuration.
+- **Does it phone home, track usage, or call any WordClerk-controlled service?** No such service exists. There is nothing to phone home to.
+- **What if we don't want *any* outbound network calls at all?** Don't turn on the Online Lookup tab — the Case Law and Non-patent Literature workflows (the add-in's original functionality) are 100% local and unaffected by its presence.
+- **Can we restrict which external domains it's allowed to reach?** Yes, at the network layer (firewall/proxy allow-list) using the domains named in the data-flow table, and/or at the manifest layer via `<AppDomains>`.
+- **Who maintains this and where do we report a security concern?** It's maintained in the open at [github.com/wbarnha/WordClerk](https://github.com/wbarnha/WordClerk); file an issue or PR there, or read the source directly — there's no vendor support line to call.
 
 ## Compliance considerations
 

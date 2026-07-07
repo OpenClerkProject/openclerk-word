@@ -31,6 +31,11 @@ export abstract class EnterpriseCitationProvider implements CitationProvider {
       throw new Error(`Missing required field(s): ${missing.map((field) => field.label).join(", ")}`);
     }
 
+    const apiBaseUrl = credentials.apiBaseUrl;
+    if (apiBaseUrl && !/^https:\/\//i.test(apiBaseUrl.trim())) {
+      throw new Error("The API base URL must start with https:// so credentials and citations are never sent unencrypted.");
+    }
+
     await this.verifyCredentials(credentials);
     this.credentials = credentials;
   }

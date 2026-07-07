@@ -10,8 +10,10 @@ import { ParsedCitation } from "./types";
 const NAME_START_TOKEN = "[A-Z][A-Za-z.'&-]*";
 const NAME_CONT_TOKEN = "(?:[A-Z][A-Za-z.'&-]*|&|of|the|and|for|a|an|ex|rel\\.?)";
 const CASE_NAME = `${NAME_START_TOKEN}(?:\\s+${NAME_CONT_TOKEN})*`;
+// Optional Bluebook pincite immediately after the first page, e.g. ", 496" or ", 705-06".
+const PINCITE = "(?:,\\s*\\d+(?:-\\d+)?)?";
 const CASE_CITATION_REGEX = new RegExp(
-  `${CASE_NAME}\\s+v\\.?\\s+${CASE_NAME},\\s*\\d+\\s+[A-Za-z0-9.&' ]+?\\s+\\d+(?:\\s*\\([^)]*\\))?`,
+  `${CASE_NAME}\\s+v\\.?\\s+${CASE_NAME},\\s*\\d+\\s+[A-Za-z0-9.&' ]+?\\s+\\d+${PINCITE}(?:\\s*\\([^)]*\\))?`,
   "g"
 );
 
@@ -55,14 +57,14 @@ export function parseCaseCitation(text: string): ParsedCitation | null {
   }
 
   const match = raw.match(
-    /^(.+?),\s*(\d+)\s+([A-Za-z0-9.&' ]+?)\s+(\d+)\s*(?:\(([^)]*)\))?\s*$/
+    /^(.+?),\s*(\d+)\s+([A-Za-z0-9.&' ]+?)\s+(\d+)(?:,\s*(\d+(?:-\d+)?))?\s*(?:\(([^)]*)\))?\s*$/
   );
 
   if (!match) {
     return null;
   }
 
-  const [, caseName, volume, reporter, page, parenthetical] = match;
+  const [, caseName, volume, reporter, page, pincite, parenthetical] = match;
   const parsed: ParsedCitation = {
     raw,
     caseName: caseName?.trim(),
@@ -70,6 +72,9 @@ export function parseCaseCitation(text: string): ParsedCitation | null {
     reporter: reporter?.trim(),
     page: page?.trim(),
   };
+  if (pincite) {
+    parsed.pincite = pincite.trim();
+  }
 
   if (parenthetical) {
     const yearMatch = parenthetical.match(/(\d{4})\s*$/);
