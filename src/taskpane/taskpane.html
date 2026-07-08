@@ -27,6 +27,7 @@
             <button id="case-law-tab" class="tab-button active" role="tab" aria-selected="true">Case Law</button>
             <button id="non-patent-tab" class="tab-button" role="tab" aria-selected="false">Non-patent Literature</button>
             <button id="online-lookup-tab" class="tab-button" role="tab" aria-selected="false">Online Lookup</button>
+            <button id="bluebook-check-tab" class="tab-button" role="tab" aria-selected="false">Bluebook Check</button>
         </div>
 
         <section id="case-law-panel" class="tab-panel active" role="tabpanel">
@@ -71,6 +72,20 @@
             <div class="button-row bottom-actions">
                 <button id="apply-online-hyperlinks" class="ms-Button ms-Button--primary">Scan &amp; hyperlink via API</button>
             </div>
+        </section>
+
+        <section id="bluebook-check-panel" class="tab-panel" role="tabpanel">
+            <p class="ms-font-l">Scan the current document's case citations for common Bluebook formatting problems.</p>
+            <p class="helper-text">This checks mechanical conventions (the "v." abbreviation, reporter series form, year and court-abbreviation presence, and a few edition-specific case-name abbreviations) based on publicly documented Bluebook rules. It is not a substitute for the actual rulebook and does not check every rule.</p>
+
+            <label class="ms-Label" for="bluebook-edition-select">Bluebook edition</label>
+            <select id="bluebook-edition-select" class="url-input"></select>
+            <p id="bluebook-edition-description" class="helper-text"></p>
+
+            <div class="button-row">
+                <button id="check-bluebook-citations" class="ms-Button ms-Button--primary">Check citations</button>
+            </div>
+            <div id="bluebook-issue-list" class="citation-list"></div>
         </section>
 
         <p id="status" class="status" aria-live="polite">Choose a source document to begin.</p>

@@ -141,6 +141,30 @@ button.ms-Button--primary:hover {
     color: #2a2a2a;
 }
 
+.bluebook-issue-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid #e2d1b0;
+}
+
+.bluebook-issue-row label {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-word;
+    color: #2a2a2a;
+}
+
+.bluebook-issue-row .issue-ok {
+    color: #2f6e2f;
+}
+
+.bluebook-issue-row .issue-flagged {
+    color: #8b3a1a;
+}
+
 .helper-text {
     margin: 0;
     color: #5f5344;

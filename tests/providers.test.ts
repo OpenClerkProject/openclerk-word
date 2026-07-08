@@ -94,6 +94,45 @@ describe('parseCaseCitation: Bluebook format coverage', () => {
     // nominative-reporter aside, so this returns null (skipped) rather than a wrong match.
     expect(parseCaseCitation('Marbury v. Madison, 5 U.S. (1 Cranch) 137 (1803)')).toBeNull();
   });
+
+  test('multiple comma-separated pincites are captured as one list, not just the first', () => {
+    // Regression test: found via manual validation against a real brief. The old single-pincite
+    // pattern stopped after "505", leaving ", 508, 513 (1969)" -- including the year -- unmatched.
+    const parsed = parseCaseCitation('Tinker v. Des Moines Indep. Cmty. Sch. Dist., 393 U.S. 503, 505, 508, 513 (1969)');
+    expect(parsed).toMatchObject({ page: '503', pincite: '505, 508, 513', year: '1969' });
+  });
+
+  test('a reporter series suffix is not mistaken for the page number (F. Supp. 3d)', () => {
+    // Regression test: found via manual validation. "\d+" alone matched just the "3" out of "3d",
+    // and since everything after a page number is optional, the parse silently stopped there,
+    // discarding the real page/pincite/parenthetical that followed.
+    const parsed = parseCaseCitation('Schoenecker v. Koopman, 349 F. Supp. 3d 745, 753 (E.D. Wis. 2018)');
+    expect(parsed).toMatchObject({
+      reporter: 'F. Supp. 3d',
+      page: '745',
+      pincite: '753',
+      court: 'E.D. Wis.',
+      year: '2018',
+    });
+  });
+
+  test('known limitation: a footnote pincite ("n.1") between the pincite and parenthetical is not parsed', () => {
+    expect(parseCaseCitation('Darlingh v. Maddaleni, 142 F.4th 558, 567 n.1 (7th Cir. 2025)')).toBeNull();
+  });
+
+  test('known limitation: a parallel citation to a second reporter is misparsed, not rejected', () => {
+    // parseCaseCitation's caseName capture is deliberately unconstrained (it's meant to run on an
+    // already-isolated citation substring), so when given a full parallel citation directly, it
+    // backtracks past the first reporter/volume/page and treats the whole first citation as part of
+    // the case name, parsing only the second (N.Y.S.2d) reporter -- a wrong answer, not a null one.
+    // In the real pipeline this is less likely to bite: extractCaseCitations' stricter case-name
+    // token pattern stops well before "24 Misc. 2d ...", since digits aren't a valid case-name token.
+    const parsed = parseCaseCitation(
+      'Brookville v. Paulgene Realty Corp., 24 Misc. 2d 790, 795-96, 200 N.Y.S.2d 126, 134 (Sup. Ct. 1960)'
+    );
+    expect(parsed?.reporter).toBe('N.Y.S.2d');
+    expect(parsed?.caseName).toContain('24 Misc. 2d 790');
+  });
 });
 
 describe('extractCaseCitations', () => {

@@ -67,6 +67,8 @@ the selected provider is asked about that citation; if it immediately resolves t
 
 Providers are plugins implementing `CitationProvider` in [src/taskpane/providers/types.ts](src/taskpane/providers/types.ts) and self-registering with `citationProviderRegistry` in [src/taskpane/providers/index.ts](src/taskpane/providers/index.ts). To add a new one (a firm's internal search API, another public case-law database, etc.), implement the interface and register an instance — nothing else in the add-in needs to change.
 
+**Citation scanner known limitations** (validated by hand against a real trial brief, not committed to this repo): the scanner in [citationParser.ts](src/taskpane/providers/citationParser.ts) handles multi-pincite lists (`503, 505, 508, 513`), pincite ranges (`705-06`), and reporters with embedded digits (`F. Supp. 3d`, `F.4th`) correctly, but does not currently handle footnote pincites (`567 n.1`), a stray typo like a doubled comma before the parenthetical, or parallel citations to a second reporter (`24 Misc. 2d 790, 200 N.Y.S.2d 126 (1960)`) — the last of these gets misparsed (matching the second reporter, treating the first as part of the case name) rather than cleanly skipped. See the "known limitation" tests in `tests/providers.test.ts` for exact behavior.
+
 Built-in providers:
 - **CourtListener** ([courtListenerProvider.ts](src/taskpane/providers/courtListenerProvider.ts)) — Free Law Project's free, public case-law search. Works with no credentials; get an optional API token at [courtlistener.com/profile/api-token](https://www.courtlistener.com/profile/api-token/) to raise the (fairly low) anonymous rate limit.
 - **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](src/taskpane/providers/lexisNexisProvider.ts), [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts), [bloombergLawProvider.ts](src/taskpane/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so WordClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
@@ -95,6 +97,23 @@ Built-in providers:
 3. Enter the Client ID, Secret, and the API base URL Bloomberg gives you into the Bloomberg Law fields on the Online Lookup tab.
 
 Because the three enterprise integrations are contract-gated and provisioned per customer, treat the exact field names/paths above as a starting point, not a guarantee — confirm specifics against the documentation your vendor rep provides.
+
+## Bluebook citation checking (plugin architecture)
+
+The **Bluebook Check** tab scans the current document's case citations for common Bluebook formatting problems and lists any it finds, per citation. It's a mechanical checker, not the rulebook: it verifies conventions like
+
+- `"v."` is used (not `"v"` or `"vs."`) between party names,
+- the reporter series uses the ordinal abbreviations `"2d"`/`"3d"` rather than `"2nd"`/`"3rd"`,
+- a decision year is present in the parenthetical, and
+- a court abbreviation is present for any reporter other than U.S. Reports (`"U.S."`, where the Supreme Court is implied),
+
+plus a small set of edition-specific case-name abbreviations (see below). **It does not check every Bluebook rule** (typeface/italics, signal usage, pinpoint-citation style for non-case authorities, etc.) and isn't a substitute for the actual rulebook — treat a clean result as "no obvious mechanical problems," not "Bluebook-perfect."
+
+Like the citation lookup providers, Bluebook editions are plugins implementing `BluebookRuleSet` in [src/taskpane/bluebook/types.ts](src/taskpane/bluebook/types.ts) and registering with `bluebookRuleSetRegistry` in [src/taskpane/bluebook/index.ts](src/taskpane/bluebook/index.ts). Pick an edition from the dropdown on the Bluebook Check tab; each is checked independently and adding a new edition (or a firm/journal-specific house style) means implementing the interface and registering an instance.
+
+Built-in editions — **20th (2015)**, **21st (2020)**, **22nd (2025, current)**:
+- All three run the same shared, edition-stable Rule 10 (case citation) checks listed above — see [commonRules.ts](src/taskpane/bluebook/commonRules.ts). Per the [University of Washington Law Library's Bluebook 101 guide](https://lib.law.uw.edu/bluebook101/editions) ([22nd edition page](https://lib.law.uw.edu/bluebook101/22nd)), the documented changes across these three editions are concentrated in statutory/online-source citation, typeface terminology, and new source types (audio/video, AI-generated content, state administrative materials) — not in core case-citation format, so there was no accurate edition-specific case-citation rule to invent for most of Rule 10.
+- The one genuine, verified case-citation-relevant difference: the **21st edition merged Table T6** (case-name word abbreviations) **with the former Table T13.2** (periodical/institutional-author abbreviations), so several words — e.g. *Laboratory* → `Lab'y`, *Employment*/*Employee* → `Emp.`, and similarly *Environment* → `Env't`, *Research* → `Rsch.`, *Psychology* → `Psych.`, *Sociology* → `Socio.`, *Comparative* → `Compar.` — went from "spelled out in case names, abbreviated only in institutional-author citations" to "abbreviated everywhere." The 20th-edition rule-set doesn't flag these words in case names; the 21st and 22nd do. Sources: the UW guide above and Mary Whisner, [Bluebook Weight Loss Program, Part Two: The Merger of Tables T6 and T13.2](https://citeblog.access-to-law.com/?p=1074) (which specifically confirms the *Laboratory*/*Employment* mappings; the remaining word list is the same category of T6/T13.2-merger abbreviation but hasn't been independently verified word-for-word against the official table — see the sourcing note in [caseNameAbbreviations.ts](src/taskpane/bluebook/caseNameAbbreviations.ts)).
 
 ## Security & IT review
 

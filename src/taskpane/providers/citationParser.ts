@@ -10,10 +10,20 @@ import { ParsedCitation } from "./types";
 const NAME_START_TOKEN = "[A-Z][A-Za-z.'&-]*";
 const NAME_CONT_TOKEN = "(?:[A-Z][A-Za-z.'&-]*|&|of|the|and|for|a|an|ex|rel\\.?)";
 const CASE_NAME = `${NAME_START_TOKEN}(?:\\s+${NAME_CONT_TOKEN})*`;
-// Optional Bluebook pincite immediately after the first page, e.g. ", 496" or ", 705-06".
-const PINCITE = "(?:,\\s*\\d+(?:-\\d+)?)?";
+// A complete number token, e.g. the "745" in "745, 753" or the "349" in "349 F. Supp. 3d". The
+// trailing \b matters: without it, "\d+" happily matches just the "3" out of a reporter suffix like
+// "3d" (as in "F. Supp. 3d"), and since everything after the page number is optional, the regex
+// would accept that truncated parse instead of expanding the (lazy) reporter to swallow "3d" and
+// finding the real page number ("745") after it.
+const NUMBER = "\\d+\\b";
+// A single pincite page, e.g. "496" or a range like "705-06". Bluebook citations commonly cite
+// several pincite pages at once (e.g. "393 U.S. 503, 505, 508, 513 (1969)"), so the full pincite
+// segment is zero or more comma-separated instances of this, not just one.
+const PINCITE_PAGE = `${NUMBER}(?:-\\d+\\b)?`;
+const PINCITE_LIST = `${PINCITE_PAGE}(?:,\\s*${PINCITE_PAGE})*`;
+const PINCITE = `(?:,\\s*${PINCITE_LIST})?`;
 const CASE_CITATION_REGEX = new RegExp(
-  `${CASE_NAME}\\s+v\\.?\\s+${CASE_NAME},\\s*\\d+\\s+[A-Za-z0-9.&' ]+?\\s+\\d+${PINCITE}(?:\\s*\\([^)]*\\))?`,
+  `${CASE_NAME}\\s+v\\.?\\s+${CASE_NAME},\\s*${NUMBER}\\s+[A-Za-z0-9.&' ]+?\\s+${NUMBER}${PINCITE}(?:\\s*\\([^)]*\\))?`,
   "g"
 );
 
@@ -57,7 +67,9 @@ export function parseCaseCitation(text: string): ParsedCitation | null {
   }
 
   const match = raw.match(
-    /^(.+?),\s*(\d+)\s+([A-Za-z0-9.&' ]+?)\s+(\d+)(?:,\s*(\d+(?:-\d+)?))?\s*(?:\(([^)]*)\))?\s*$/
+    new RegExp(
+      `^(.+?),\\s*(${NUMBER})\\s+([A-Za-z0-9.&' ]+?)\\s+(${NUMBER})(?:,\\s*(${PINCITE_LIST}))?\\s*(?:\\(([^)]*)\\))?\\s*$`
+    )
   );
 
   if (!match) {
