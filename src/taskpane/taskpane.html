@@ -19,58 +19,76 @@
         <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see the task pane.</h2>
     </section>
     <main id="app-body" class="ms-welcome__main hidden">
-        <div class="tab-bar" role="tablist" aria-label="Citation workflows">
-            <button id="case-law-tab" class="tab-button active" role="tab" aria-selected="true">Case Law</button>
-            <button id="non-patent-tab" class="tab-button" role="tab" aria-selected="false">Non-patent Literature</button>
-            <button id="online-lookup-tab" class="tab-button" role="tab" aria-selected="false">Online Lookup</button>
-            <button id="bluebook-check-tab" class="tab-button" role="tab" aria-selected="false">Bluebook Check</button>
-        </div>
+        <label class="ms-Label" for="workflow-select">Workflow</label>
+        <select id="workflow-select" class="url-input" aria-label="Citation workflow">
+            <option value="manage-hyperlinks">Manage Hyperlinks</option>
+            <option value="bluebook-check">Bluebook Check</option>
+            <option value="hallucination-check">Find Hallucinations</option>
+        </select>
 
-        <section id="case-law-panel" class="tab-panel active" role="tabpanel">
-            <p class="ms-font-l">Use a source .docx file that already has case-law citations hyperlinked and apply those same links to the active document without changing the visible text.</p>
-            <p class="helper-text">Bluebook formatting is not rewritten by this tool; it only applies or removes hyperlinks around existing citations.</p>
-            <label class="ms-Label" for="source-file">Source document (.docx)</label>
-            <input id="source-file" class="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-            <div class="button-row">
-                <button id="apply-hyperlinks" class="ms-Button ms-Button--primary">Apply hyperlinks</button>
-                <button id="remove-hyperlinks" class="ms-Button">Remove hyperlinks</button>
+        <section id="manage-hyperlinks-panel" class="tab-panel active">
+            <p class="ms-font-l">Apply or remove hyperlinks on citations in the document.</p>
+
+            <label class="ms-Label" for="hyperlink-scope-select">Citation scope</label>
+            <select id="hyperlink-scope-select" class="url-input">
+                <option value="case-law">Case law</option>
+                <option value="non-case-law">Non-case-law (e.g. non-patent literature)</option>
+                <option value="both">Both</option>
+            </select>
+
+            <div id="case-law-scope-section" class="scope-section">
+                <label class="ms-Label" for="case-law-source-select">Source</label>
+                <select id="case-law-source-select" class="url-input">
+                    <option value="file">From a file (e.g. a Table of Authorities exported from Westlaw)</option>
+                    <option value="online">Online lookup</option>
+                </select>
+
+                <div id="case-law-file-source" class="scope-section">
+                    <p class="helper-text">Use a source .docx file that already has case-law citations hyperlinked &mdash; such as a Table of Authorities exported from Westlaw or a similar research platform &mdash; and apply those same links to the active document without changing the visible text.</p>
+                    <label class="ms-Label" for="source-file">Source document (.docx)</label>
+                    <input id="source-file" class="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                    <div class="button-row">
+                        <button id="apply-hyperlinks" class="ms-Button ms-Button--primary">Apply hyperlinks</button>
+                        <button id="remove-hyperlinks" class="ms-Button">Remove hyperlinks</button>
+                    </div>
+                </div>
+
+                <div id="case-law-online-source" class="scope-section">
+                    <p class="helper-text">Look citations up live through a case-law API and hyperlink only the ones that resolve to an exact case. Example: "Norfolk &amp; W. Ry. Co. v. Liepelt, 444 U.S. 490 (U.S.Ill., 1980)" is sent to the selected provider. If it immediately resolves to one case, a hyperlink is added; otherwise that citation is left untouched and the scan moves on.</p>
+
+                    <label class="ms-Label" for="provider-select">Lookup provider</label>
+                    <select id="provider-select" class="url-input"></select>
+                    <p id="provider-description" class="helper-text"></p>
+
+                    <div id="provider-credential-fields" class="citation-list"></div>
+                    <div class="button-row">
+                        <button id="provider-connect" class="ms-Button">Connect</button>
+                        <button id="provider-disconnect" class="ms-Button">Disconnect</button>
+                    </div>
+                    <p id="provider-auth-status" class="helper-text">Not connected.</p>
+
+                    <div class="button-row bottom-actions">
+                        <button id="apply-online-hyperlinks" class="ms-Button ms-Button--primary">Scan &amp; hyperlink via API</button>
+                    </div>
+                </div>
             </div>
+
+            <div id="non-case-law-scope-section" class="scope-section">
+                <p class="helper-text">Scan the current document for parenthetical citations (e.g. non-patent literature) and assign a URL to each one.</p>
+                <div class="button-row">
+                    <button id="scan-parentheticals" class="ms-Button ms-Button--primary">Scan citations</button>
+                </div>
+                <div id="parenthetical-citation-list" class="citation-list"></div>
+                <div class="button-row bottom-actions">
+                    <button id="add-parenthetical-hyperlinks" class="ms-Button ms-Button--primary">Add Hyperlinks</button>
+                    <button id="remove-parenthetical-hyperlinks" class="ms-Button">Remove Hyperlinks</button>
+                </div>
+            </div>
+
+            <p class="helper-text">Bluebook formatting is not rewritten by any of the above; hyperlinks are only applied or removed around existing citation text.</p>
         </section>
 
-        <section id="non-patent-panel" class="tab-panel" role="tabpanel">
-            <p class="ms-font-l">Scan the current document for parenthetical citations and assign URLs to each one.</p>
-            <p class="helper-text">Bluebook formatting is not rewritten by this tool; it only adds or removes hyperlinks around existing parenthetical citations.</p>
-            <div class="button-row">
-                <button id="scan-parentheticals" class="ms-Button ms-Button--primary">Scan citations</button>
-            </div>
-            <div id="parenthetical-citation-list" class="citation-list"></div>
-            <div class="button-row bottom-actions">
-                <button id="add-parenthetical-hyperlinks" class="ms-Button ms-Button--primary">Add Hyperlinks</button>
-                <button id="remove-parenthetical-hyperlinks" class="ms-Button">Remove Hyperlinks</button>
-            </div>
-        </section>
-
-        <section id="online-lookup-panel" class="tab-panel" role="tabpanel">
-            <p class="ms-font-l">Instead of parsing a source file, look citations up live through a case-law API and hyperlink only the ones that resolve to an exact case.</p>
-            <p class="helper-text">Example: "Norfolk &amp; W. Ry. Co. v. Liepelt, 444 U.S. 490 (U.S.Ill., 1980)" is sent to the selected provider. If it immediately resolves to one case, a hyperlink is added; otherwise that citation is left untouched and the scan moves on.</p>
-
-            <label class="ms-Label" for="provider-select">Lookup provider</label>
-            <select id="provider-select" class="url-input"></select>
-            <p id="provider-description" class="helper-text"></p>
-
-            <div id="provider-credential-fields" class="citation-list"></div>
-            <div class="button-row">
-                <button id="provider-connect" class="ms-Button">Connect</button>
-                <button id="provider-disconnect" class="ms-Button">Disconnect</button>
-            </div>
-            <p id="provider-auth-status" class="helper-text">Not connected.</p>
-
-            <div class="button-row bottom-actions">
-                <button id="apply-online-hyperlinks" class="ms-Button ms-Button--primary">Scan &amp; hyperlink via API</button>
-            </div>
-        </section>
-
-        <section id="bluebook-check-panel" class="tab-panel" role="tabpanel">
+        <section id="bluebook-check-panel" class="tab-panel">
             <p class="ms-font-l">Scan the current document's case citations for common Bluebook formatting problems.</p>
             <p class="helper-text">This checks mechanical conventions (the "v." abbreviation, reporter series form, year and court-abbreviation presence, and a few edition-specific case-name abbreviations) based on publicly documented Bluebook rules. It is not a substitute for the actual rulebook and does not check every rule.</p>
 
@@ -82,6 +100,18 @@
                 <button id="check-bluebook-citations" class="ms-Button ms-Button--primary">Check citations</button>
             </div>
             <div id="bluebook-issue-list" class="citation-list"></div>
+        </section>
+
+        <section id="hallucination-check-panel" class="tab-panel">
+            <p class="ms-font-l">Checks every case-law citation in the document against the platforms you select below, in the order you choose. A citation not found on any selected platform is flagged as a possible hallucination.</p>
+            <p class="helper-text">Providers that require credentials must be connected first via the online-lookup source on the Manage Hyperlinks tab &mdash; connecting there applies here too. Checked platforms are searched top to bottom for each citation; the first one that finds a match wins, and the rest are skipped for that citation.</p>
+
+            <div id="hallucination-provider-list" class="citation-list"></div>
+
+            <div class="button-row">
+                <button id="check-hallucinations" class="ms-Button ms-Button--primary">Find Hallucinations</button>
+            </div>
+            <div id="hallucination-results-list" class="citation-list"></div>
         </section>
 
         <p id="status" class="status" aria-live="polite">Choose a source document to begin.</p>

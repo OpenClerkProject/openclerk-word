@@ -20,7 +20,11 @@ import { bluebookRuleSetRegistry, BluebookRuleSet } from "./bluebook";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
-type TabId = "case-law" | "non-patent" | "online-lookup" | "bluebook-check";
+type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check";
+type HyperlinkScope = "case-law" | "non-case-law" | "both";
+type CaseLawSource = "file" | "online";
+type HallucinationProviderEntry = { id: string; checked: boolean };
+type HallucinationResult = { raw: string; verifiedVia: string | null; skippedProviders: string[] };
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
 // decompress to a huge amount of data in memory ("zip bomb") and hang or crash the taskpane.
@@ -38,6 +42,9 @@ const MAX_SEARCH_TEXT_LENGTH = 255;
 
 let sourceCitationMap: CitationMap | null = null;
 let parentheticalEntries: ParentheticalEntry[] = [];
+let hallucinationProviderOrder: HallucinationProviderEntry[] = [];
+let hyperlinkScope: HyperlinkScope = "case-law";
+let caseLawSource: CaseLawSource = "file";
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
@@ -46,19 +53,19 @@ Office.onReady((info) => {
     const sourceFileInput = document.getElementById("source-file") as HTMLInputElement | null;
     const applyButton = document.getElementById("apply-hyperlinks") as HTMLButtonElement | null;
     const removeButton = document.getElementById("remove-hyperlinks") as HTMLButtonElement | null;
-    const caseLawTab = document.getElementById("case-law-tab") as HTMLButtonElement | null;
-    const nonPatentTab = document.getElementById("non-patent-tab") as HTMLButtonElement | null;
+    const workflowSelect = document.getElementById("workflow-select") as HTMLSelectElement | null;
+    const hyperlinkScopeSelect = document.getElementById("hyperlink-scope-select") as HTMLSelectElement | null;
+    const caseLawSourceSelect = document.getElementById("case-law-source-select") as HTMLSelectElement | null;
     const scanButton = document.getElementById("scan-parentheticals") as HTMLButtonElement | null;
     const addParentheticalButton = document.getElementById("add-parenthetical-hyperlinks") as HTMLButtonElement | null;
     const removeParentheticalButton = document.getElementById("remove-parenthetical-hyperlinks") as HTMLButtonElement | null;
-    const onlineLookupTab = document.getElementById("online-lookup-tab") as HTMLButtonElement | null;
     const providerSelect = document.getElementById("provider-select") as HTMLSelectElement | null;
     const providerConnectButton = document.getElementById("provider-connect") as HTMLButtonElement | null;
     const providerDisconnectButton = document.getElementById("provider-disconnect") as HTMLButtonElement | null;
     const applyOnlineHyperlinksButton = document.getElementById("apply-online-hyperlinks") as HTMLButtonElement | null;
-    const bluebookCheckTab = document.getElementById("bluebook-check-tab") as HTMLButtonElement | null;
     const bluebookEditionSelect = document.getElementById("bluebook-edition-select") as HTMLSelectElement | null;
     const checkBluebookCitationsButton = document.getElementById("check-bluebook-citations") as HTMLButtonElement | null;
+    const checkHallucinationsButton = document.getElementById("check-hallucinations") as HTMLButtonElement | null;
 
     if (sideloadMessage) {
       sideloadMessage.style.display = "none";
@@ -75,11 +82,20 @@ Office.onReady((info) => {
     if (removeButton) {
       removeButton.addEventListener("click", removeCaseLawHyperlinks);
     }
-    if (caseLawTab) {
-      caseLawTab.addEventListener("click", () => setActiveTab("case-law"));
+    if (workflowSelect) {
+      workflowSelect.addEventListener("change", () => setActiveTab(workflowSelect.value as TabId));
     }
-    if (nonPatentTab) {
-      nonPatentTab.addEventListener("click", () => setActiveTab("non-patent"));
+    if (hyperlinkScopeSelect) {
+      hyperlinkScopeSelect.addEventListener("change", () => {
+        hyperlinkScope = hyperlinkScopeSelect.value as HyperlinkScope;
+        updateManageHyperlinksVisibility();
+      });
+    }
+    if (caseLawSourceSelect) {
+      caseLawSourceSelect.addEventListener("change", () => {
+        caseLawSource = caseLawSourceSelect.value as CaseLawSource;
+        updateManageHyperlinksVisibility();
+      });
     }
     if (scanButton) {
       scanButton.addEventListener("click", scanParentheticalCitations);
@@ -89,9 +105,6 @@ Office.onReady((info) => {
     }
     if (removeParentheticalButton) {
       removeParentheticalButton.addEventListener("click", removeParentheticalHyperlinks);
-    }
-    if (onlineLookupTab) {
-      onlineLookupTab.addEventListener("click", () => setActiveTab("online-lookup"));
     }
     if (providerSelect) {
       providerSelect.addEventListener("change", renderProviderPanel);
@@ -105,19 +118,21 @@ Office.onReady((info) => {
     if (applyOnlineHyperlinksButton) {
       applyOnlineHyperlinksButton.addEventListener("click", applyHyperlinksViaProvider);
     }
-    if (bluebookCheckTab) {
-      bluebookCheckTab.addEventListener("click", () => setActiveTab("bluebook-check"));
-    }
     if (bluebookEditionSelect) {
       bluebookEditionSelect.addEventListener("change", renderBluebookEditionDescription);
     }
     if (checkBluebookCitationsButton) {
       checkBluebookCitationsButton.addEventListener("click", checkBluebookCitations);
     }
+    if (checkHallucinationsButton) {
+      checkHallucinationsButton.addEventListener("click", checkForHallucinations);
+    }
 
     populateProviderSelect();
     populateBluebookEditionSelect();
-    setActiveTab("case-law");
+    populateHallucinationProviderList();
+    updateManageHyperlinksVisibility();
+    setActiveTab("manage-hyperlinks");
   }
 });
 
@@ -489,24 +504,50 @@ async function applyHyperlinksViaProvider() {
   }
 }
 
-const TAB_ELEMENT_IDS: Record<TabId, { tab: string; panel: string }> = {
-  "case-law": { tab: "case-law-tab", panel: "case-law-panel" },
-  "non-patent": { tab: "non-patent-tab", panel: "non-patent-panel" },
-  "online-lookup": { tab: "online-lookup-tab", panel: "online-lookup-panel" },
-  "bluebook-check": { tab: "bluebook-check-tab", panel: "bluebook-check-panel" },
+const TAB_PANEL_IDS: Record<TabId, string> = {
+  "manage-hyperlinks": "manage-hyperlinks-panel",
+  "bluebook-check": "bluebook-check-panel",
+  "hallucination-check": "hallucination-check-panel",
 };
 
 function setActiveTab(tabName: TabId) {
-  (Object.keys(TAB_ELEMENT_IDS) as TabId[]).forEach((id) => {
-    const isActive = id === tabName;
-    const tabEl = document.getElementById(TAB_ELEMENT_IDS[id].tab);
-    const panelEl = document.getElementById(TAB_ELEMENT_IDS[id].panel);
-    tabEl?.classList.toggle("active", isActive);
-    tabEl?.setAttribute("aria-selected", isActive ? "true" : "false");
-    panelEl?.classList.toggle("active", isActive);
+  (Object.keys(TAB_PANEL_IDS) as TabId[]).forEach((id) => {
+    const panelEl = document.getElementById(TAB_PANEL_IDS[id]);
+    panelEl?.classList.toggle("active", id === tabName);
   });
 
-  if (tabName === "non-patent" && parentheticalEntries.length === 0) {
+  const workflowSelect = document.getElementById("workflow-select") as HTMLSelectElement | null;
+  if (workflowSelect && workflowSelect.value !== tabName) {
+    workflowSelect.value = tabName;
+  }
+
+  if (tabName === "hallucination-check") {
+    // Re-render (not re-populate) so any provider connected via the Manage Hyperlinks tab since
+    // this list was first built shows up-to-date "(not connected)" status, without losing the
+    // user's checked/order selections.
+    renderHallucinationProviderList();
+  }
+}
+
+// Toggles which sub-section(s) of the Manage Hyperlinks panel are visible based on the current
+// scope (case law / non-case-law / both) and, within case-law scope, which source is selected
+// (a file with pre-existing hyperlinks, vs. a live online lookup). Both scope sections can be
+// visible at once when scope is "both".
+function updateManageHyperlinksVisibility() {
+  const caseLawSection = document.getElementById("case-law-scope-section");
+  const nonCaseLawSection = document.getElementById("non-case-law-scope-section");
+  const fileSource = document.getElementById("case-law-file-source");
+  const onlineSource = document.getElementById("case-law-online-source");
+
+  const showCaseLaw = hyperlinkScope === "case-law" || hyperlinkScope === "both";
+  const showNonCaseLaw = hyperlinkScope === "non-case-law" || hyperlinkScope === "both";
+
+  caseLawSection?.classList.toggle("hidden", !showCaseLaw);
+  nonCaseLawSection?.classList.toggle("hidden", !showNonCaseLaw);
+  fileSource?.classList.toggle("hidden", caseLawSource !== "file");
+  onlineSource?.classList.toggle("hidden", caseLawSource !== "online");
+
+  if (showNonCaseLaw && parentheticalEntries.length === 0) {
     scanParentheticalCitations();
   }
 }
@@ -647,6 +688,199 @@ function renderBluebookIssues(candidates: string[], ruleSet: BluebookRuleSet) {
         .join(" ");
     }
     row.appendChild(result);
+
+    fragment.appendChild(row);
+  });
+
+  container.appendChild(fragment);
+}
+
+function populateHallucinationProviderList() {
+  // Registry order is the sensible initial default (roughly free/public first); nothing is
+  // checked by default since the user must explicitly choose which platforms to trust.
+  hallucinationProviderOrder = citationProviderRegistry.list().map((provider) => ({
+    id: provider.id,
+    checked: false,
+  }));
+  renderHallucinationProviderList();
+}
+
+function renderHallucinationProviderList() {
+  const container = document.getElementById("hallucination-provider-list");
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const fragment = document.createDocumentFragment();
+  hallucinationProviderOrder.forEach((entry, index) => {
+    const provider = citationProviderRegistry.get(entry.id);
+    if (!provider) {
+      return;
+    }
+
+    const row = document.createElement("div");
+    row.className = "hallucination-provider-row";
+
+    const label = document.createElement("label");
+    label.className = "hallucination-provider-label";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = entry.checked;
+    checkbox.addEventListener("change", () => {
+      entry.checked = checkbox.checked;
+    });
+
+    const nameSpan = document.createElement("span");
+    const authNote = provider.requiresAuth && !provider.isAuthenticated() ? " (not connected)" : "";
+    nameSpan.textContent = `${index + 1}. ${provider.name}${authNote}`;
+
+    label.appendChild(checkbox);
+    label.appendChild(nameSpan);
+    row.appendChild(label);
+
+    const moveButtons = document.createElement("div");
+    moveButtons.className = "hallucination-move-buttons";
+
+    const upButton = document.createElement("button");
+    upButton.type = "button";
+    upButton.className = "ms-Button move-button";
+    upButton.textContent = "↑";
+    upButton.title = "Move up";
+    upButton.disabled = index === 0;
+    upButton.addEventListener("click", () => moveHallucinationProvider(index, -1));
+
+    const downButton = document.createElement("button");
+    downButton.type = "button";
+    downButton.className = "ms-Button move-button";
+    downButton.textContent = "↓";
+    downButton.title = "Move down";
+    downButton.disabled = index === hallucinationProviderOrder.length - 1;
+    downButton.addEventListener("click", () => moveHallucinationProvider(index, 1));
+
+    moveButtons.appendChild(upButton);
+    moveButtons.appendChild(downButton);
+    row.appendChild(moveButtons);
+
+    fragment.appendChild(row);
+  });
+
+  container.appendChild(fragment);
+}
+
+function moveHallucinationProvider(index: number, delta: number) {
+  const newIndex = index + delta;
+  if (newIndex < 0 || newIndex >= hallucinationProviderOrder.length) {
+    return;
+  }
+  const [entry] = hallucinationProviderOrder.splice(index, 1);
+  hallucinationProviderOrder.splice(newIndex, 0, entry);
+  renderHallucinationProviderList();
+}
+
+async function checkForHallucinations() {
+  const selectedProviders = hallucinationProviderOrder
+    .filter((entry) => entry.checked)
+    .map((entry) => citationProviderRegistry.get(entry.id))
+    .filter((provider): provider is CitationProvider => Boolean(provider));
+
+  if (selectedProviders.length === 0) {
+    setStatus("Select at least one platform to check citations against.");
+    return;
+  }
+
+  setStatus("Scanning the document for citations to verify...");
+
+  try {
+    await Word.run(async (context) => {
+      context.document.body.load("text");
+      await context.sync();
+      const bodyText = context.document.body.text;
+
+      const candidates = extractCaseCitations(bodyText);
+      if (candidates.length === 0) {
+        renderHallucinationResults([]);
+        setStatus("No case citations were found in the current document.");
+        return;
+      }
+
+      const results: HallucinationResult[] = [];
+
+      // Looked up one citation, one provider, at a time (not in parallel) to stay within each
+      // platform's rate limits -- same reasoning as the Online Lookup tab.
+      for (const raw of candidates) {
+        const parsed = parseCaseCitation(raw) || { raw };
+        let verifiedVia: string | null = null;
+        const skippedProviders: string[] = [];
+
+        for (const provider of selectedProviders) {
+          if (provider.requiresAuth && !provider.isAuthenticated()) {
+            skippedProviders.push(provider.name);
+            continue;
+          }
+          const match = await provider.lookupCitation(parsed);
+          if (match) {
+            verifiedVia = provider.name;
+            break;
+          }
+        }
+
+        results.push({ raw, verifiedVia, skippedProviders });
+      }
+
+      renderHallucinationResults(results);
+
+      const flaggedCount = results.filter((result) => !result.verifiedVia).length;
+      setStatus(
+        `Checked ${results.length} citation(s) against ${selectedProviders.length} platform(s); ` +
+          `${flaggedCount} could not be verified on any selected platform.`
+      );
+    });
+  } catch (error) {
+    setStatus(`Unable to check citations. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function renderHallucinationResults(results: HallucinationResult[]) {
+  const container = document.getElementById("hallucination-results-list");
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  if (results.length === 0) {
+    container.innerHTML = '<p class="helper-text">No results yet. Click "Find Hallucinations".</p>';
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  results.forEach((result) => {
+    const row = document.createElement("div");
+    row.className = "bluebook-issue-row";
+
+    const label = document.createElement("button");
+    label.type = "button";
+    label.className = "citation-link";
+    label.title = "Click to find this citation in the document";
+    label.textContent = result.raw;
+    label.addEventListener("click", () => goToCitationInDocument(result.raw));
+    row.appendChild(label);
+
+    const status = document.createElement("p");
+    status.className = "helper-text";
+    if (result.verifiedVia) {
+      status.classList.add("issue-ok");
+      status.textContent = `Verified via ${result.verifiedVia}.`;
+    } else {
+      status.classList.add("issue-flagged");
+      status.textContent =
+        result.skippedProviders.length > 0
+          ? `Not found on any connected platform. Not checked (not connected): ${result.skippedProviders.join(", ")}.`
+          : "Not found on any selected platform — possible hallucination.";
+    }
+    row.appendChild(status);
 
     fragment.appendChild(row);
   });
