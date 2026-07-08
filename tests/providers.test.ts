@@ -201,8 +201,19 @@ describe('CourtListenerProvider', () => {
     jest.restoreAllMocks();
   });
 
+  async function authenticatedProvider(mockFetch: jest.Mock): Promise<CourtListenerProvider> {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+    const provider = new CourtListenerProvider();
+    await provider.authenticate({ apiToken: 'secret-token' });
+    return provider;
+  }
+
   test('returns a hyperlink match when the API resolves exactly one case', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = await authenticatedProvider(mockFetch);
+
+    mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => [
@@ -218,9 +229,7 @@ describe('CourtListenerProvider', () => {
         },
       ],
     });
-    global.fetch = mockFetch as unknown as typeof fetch;
 
-    const provider = new CourtListenerProvider();
     const match = await provider.lookupCitation({ raw: EXAMPLE_CITATION });
 
     expect(match).toEqual({
@@ -228,53 +237,135 @@ describe('CourtListenerProvider', () => {
       caseName: 'Norfolk & Western Railway Co. v. Liepelt',
       citation: '444 U.S. 490',
     });
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(mockFetch).toHaveBeenLastCalledWith(
       'https://www.courtlistener.com/api/rest/v4/citation-lookup/',
       expect.objectContaining({ method: 'POST' })
     );
   });
 
   test('moves on (returns null) when the citation is not found', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = await authenticatedProvider(mockFetch);
+
+    mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => [
         { citation: '1 U.S. 200', status: 404, clusters: [], error_message: "Citation not found: '1 U.S. 200'" },
       ],
-    }) as unknown as typeof fetch;
+    });
 
-    const provider = new CourtListenerProvider();
     await expect(provider.lookupCitation({ raw: '1 U.S. 200' })).resolves.toBeNull();
   });
 
   test('moves on (returns null) instead of throwing on a network failure', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = await authenticatedProvider(mockFetch);
 
-    const provider = new CourtListenerProvider();
+    mockFetch.mockRejectedValueOnce(new Error('network down'));
+
     await expect(provider.lookupCitation({ raw: EXAMPLE_CITATION })).resolves.toBeNull();
   });
 
   test('moves on (returns null) instead of throwing on a non-OK HTTP response', async () => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = await authenticatedProvider(mockFetch);
 
-    const provider = new CourtListenerProvider();
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
     await expect(provider.lookupCitation({ raw: EXAMPLE_CITATION })).resolves.toBeNull();
   });
 
   test('sends the API token in the Authorization header once connected', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    const mockFetch = jest.fn();
     global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = await authenticatedProvider(mockFetch);
 
-    const provider = new CourtListenerProvider();
-    await provider.authenticate({ apiToken: 'secret-token' });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
     await provider.lookupCitation({ raw: EXAMPLE_CITATION });
 
     const lookupCallOptions = mockFetch.mock.calls[1][1];
     expect(lookupCallOptions.headers.Authorization).toBe('Token secret-token');
   });
 
-  test('is usable without any credentials', () => {
-    expect(new CourtListenerProvider().isAuthenticated()).toBe(true);
+  test('requires an API token -- both isAuthenticated() and lookupCitation() reflect this without one', async () => {
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = new CourtListenerProvider();
+
+    expect(provider.requiresAuth).toBe(true);
+    expect(provider.isAuthenticated()).toBe(false);
+    await expect(provider.lookupCitation({ raw: EXAMPLE_CITATION })).resolves.toBeNull();
+    // Confirms this is a local short-circuit, not a wasted network round-trip that always 401s.
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('authenticate() rejects an empty token, since CourtListener requires one', async () => {
+    const provider = new CourtListenerProvider();
+    await expect(provider.authenticate({ apiToken: '' })).rejects.toThrow(/requires an API token/);
+    expect(provider.isAuthenticated()).toBe(false);
+  });
+
+  test('is authenticated once connected with a real token', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    global.fetch = mockFetch as unknown as typeof fetch;
+    const provider = new CourtListenerProvider();
+    await provider.authenticate({ apiToken: 'secret-token' });
+    expect(provider.isAuthenticated()).toBe(true);
+  });
+
+  describe('rate-limit awareness (supportsRateLimitAwareness)', () => {
+    test('wasLastRequestRateLimited() is false before any lookup', () => {
+      expect(new CourtListenerProvider().wasLastRequestRateLimited()).toBe(false);
+    });
+
+    test('reports rateLimited (not a plain miss) when the API returns 429', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+      global.fetch = mockFetch as unknown as typeof fetch;
+      const provider = new CourtListenerProvider();
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({ detail: 'Request was throttled.' }) });
+
+      const match = await provider.lookupCitation({ raw: EXAMPLE_CITATION });
+      expect(match).toBeNull();
+      expect(provider.wasLastRequestRateLimited()).toBe(true);
+    });
+
+    test('resets wasLastRequestRateLimited() on a subsequent successful lookup', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+      global.fetch = mockFetch as unknown as typeof fetch;
+      const provider = new CourtListenerProvider();
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({ detail: 'Request was throttled.' }) });
+      await provider.lookupCitation({ raw: EXAMPLE_CITATION });
+      expect(provider.wasLastRequestRateLimited()).toBe(true);
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+      await provider.lookupCitation({ raw: EXAMPLE_CITATION });
+      expect(provider.wasLastRequestRateLimited()).toBe(false);
+    });
+
+    test('a plain 404/not-found response does not report rateLimited', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+      global.fetch = mockFetch as unknown as typeof fetch;
+      const provider = new CourtListenerProvider();
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [{ citation: '1 U.S. 200', status: 404, clusters: [] }],
+      });
+
+      const match = await provider.lookupCitation({ raw: '1 U.S. 200' });
+      expect(match).toBeNull();
+      expect(provider.wasLastRequestRateLimited()).toBe(false);
+    });
   });
 
   describe('fetchOpinionExcerpt (Embed Cited Text)', () => {

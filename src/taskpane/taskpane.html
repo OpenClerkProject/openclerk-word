@@ -4,7 +4,14 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://appsforoffice.microsoft.com; style-src 'self' https://res-1.cdn.office.net; font-src https://res-1.cdn.office.net; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none';" />
+    <!-- connect-src allow-lists every domain fetch() is allowed to reach. www.courtlistener.com
+         is the only one built in (free case-law lookup, see providers/courtListenerProvider.ts).
+         LexisNexis/Westlaw/Bloomberg Law lookups use a tenant-specific API base URL the user
+         supplies at runtime (see README.md "Plugin architecture" and "Security & IT review"), so
+         enabling one of those requires adding your firm's specific API domain to this directive
+         (and to manifest.xml's AppDomains) as part of your deployment -- it's deliberately not
+         allow-listed by default. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://appsforoffice.microsoft.com; style-src 'self' https://res-1.cdn.office.net; font-src https://res-1.cdn.office.net; img-src 'self' data:; connect-src https://www.courtlistener.com; object-src 'none'; frame-src 'none'; base-uri 'none';" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>WordClerk</title>
