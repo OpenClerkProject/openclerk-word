@@ -13,9 +13,24 @@
 [![Platform: Word Add-in](https://img.shields.io/badge/platform-Word%20Add--in-2B579A?style=flat-square&logo=microsoftword&logoColor=white)](manifest.xml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/wbarnha/WordClerk/pulls)
 
-WordClerk is a Word add-in (task pane) for applying and removing hyperlinks to case-law and parenthetical citations.
+WordClerk is a Word add-in (task pane) for legal citation work: hyperlinking case-law and parenthetical citations, looking citations up live against public and enterprise legal databases, and checking citations for Bluebook formatting problems — all from one task pane, and entirely local by default.
 
 > **Bringing this to IT for approval?** Start with [Security & IT review](#security--it-review) — it has a one-page summary, a data-flow table, a plain-English permissions breakdown, and a centralized-deployment path, written for a security reviewer rather than a developer.
+
+## Features
+
+WordClerk has four tabs, each a self-contained workflow:
+
+| Tab | What it does | Network calls? |
+| --- | --- | --- |
+| **Case Law** | Apply or remove hyperlinks by copying them from a source `.docx` that already has case-law citations hyperlinked — the visible text never changes, only the links. | None — parsed entirely in-browser |
+| **Non-patent Literature** | Scan the open document for parenthetical citations (e.g. `(Smith v. Jones, 2020)`), then assign a URL to each and apply/remove the resulting hyperlinks. | None |
+| **Online Lookup** | An alternative to Case Law's file-based workflow: queries a citation lookup provider live and hyperlinks only the citations that resolve to exactly one case. Ships with free **CourtListener** support out of the box, plus a plugin architecture for enterprise providers (**LexisNexis**, **Westlaw**, **Bloomberg Law**) using your firm's own contracted credentials. See [Citation hyperlink providers](#citation-hyperlink-providers-plugin-architecture). | Opt-in, per-citation only |
+| **Bluebook Check** | Scans the document's case citations for common Bluebook mechanical formatting problems (the `"v."` abbreviation, reporter series form, year/court presence, edition-specific case-name abbreviations) across three selectable editions (20th/21st/22nd). Click any flagged citation to jump straight to it in the document. See [Bluebook citation checking](#bluebook-citation-checking-plugin-architecture). | None |
+
+A **Report an issue** link sits at the bottom of every tab, pointing straight to this repo's [GitHub Issues](https://github.com/wbarnha/WordClerk/issues).
+
+Three tabs make zero network calls, ever — Online Lookup is the only feature that leaves the machine, and only when a user explicitly turns it on. See [Security & IT review](#security--it-review) for the full data-flow breakdown.
 
 ## Development
 
@@ -108,6 +123,8 @@ The **Bluebook Check** tab scans the current document's case citations for commo
 - a court abbreviation is present for any reporter other than U.S. Reports (`"U.S."`, where the Supreme Court is implied),
 
 plus a small set of edition-specific case-name abbreviations (see below). **It does not check every Bluebook rule** (typeface/italics, signal usage, pinpoint-citation style for non-case authorities, etc.) and isn't a substitute for the actual rulebook — treat a clean result as "no obvious mechanical problems," not "Bluebook-perfect."
+
+Each citation in the results list is clickable: clicking it searches the document for that exact citation text and selects it, which moves Word's view to show where it actually appears — no manual scrolling/searching needed to find a flagged citation.
 
 Like the citation lookup providers, Bluebook editions are plugins implementing `BluebookRuleSet` in [src/taskpane/bluebook/types.ts](src/taskpane/bluebook/types.ts) and registering with `bluebookRuleSetRegistry` in [src/taskpane/bluebook/index.ts](src/taskpane/bluebook/index.ts). Pick an edition from the dropdown on the Bluebook Check tab; each is checked independently and adding a new edition (or a firm/journal-specific house style) means implementing the interface and registering an instance.
 
