@@ -19,19 +19,27 @@ import {
   citationProviderRegistry,
   parseCaseCitation,
   extractCaseCitations,
+  expandPincitePages,
+  supportsOpinionText,
   CitationProvider,
+  OpinionTextCapableProvider,
   ParsedCitation,
 } from "./providers";
 import { bluebookRuleSetRegistry, BluebookRuleSet, BluebookIssue } from "./bluebook";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
-type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check";
+type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check" | "embed-cited-text";
 type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
 type HallucinationResult = { raw: string; verifiedVia: string | null; skippedProviders: string[] };
 type BluebookCheckedCitation = { raw: string; parsed: ParsedCitation | null; issues: BluebookIssue[] };
+type EmbedTextResult = { raw: string; embedded: boolean; reason: string | null };
+
+// Prefix on every comment WordClerk inserts via "Embed cited opinion text", so "Remove embedded
+// text" can find-and-delete only its own comments without touching any the user added by hand.
+const EMBEDDED_TEXT_COMMENT_MARKER = "[WordClerk embedded citation text]";
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
 // decompress to a huge amount of data in memory ("zip bomb") and hang or crash the taskpane.
@@ -76,6 +84,9 @@ Office.onReady((info) => {
     const checkBluebookCitationsButton = document.getElementById("check-bluebook-citations") as HTMLButtonElement | null;
     const bluebookShowFlaggedOnlyCheckbox = document.getElementById("bluebook-show-flagged-only") as HTMLInputElement | null;
     const checkHallucinationsButton = document.getElementById("check-hallucinations") as HTMLButtonElement | null;
+    const embedTextProviderSelect = document.getElementById("embed-text-provider-select") as HTMLSelectElement | null;
+    const embedCitedTextButton = document.getElementById("embed-cited-text") as HTMLButtonElement | null;
+    const removeEmbeddedTextButton = document.getElementById("remove-embedded-text") as HTMLButtonElement | null;
 
     if (sideloadMessage) {
       sideloadMessage.style.display = "none";
@@ -146,10 +157,20 @@ Office.onReady((info) => {
     if (checkHallucinationsButton) {
       checkHallucinationsButton.addEventListener("click", checkForHallucinations);
     }
+    if (embedTextProviderSelect) {
+      embedTextProviderSelect.addEventListener("change", renderEmbedTextProviderStatus);
+    }
+    if (embedCitedTextButton) {
+      embedCitedTextButton.addEventListener("click", embedCitedOpinionText);
+    }
+    if (removeEmbeddedTextButton) {
+      removeEmbeddedTextButton.addEventListener("click", removeEmbeddedCitationText);
+    }
 
     populateProviderSelect();
     populateBluebookEditionSelect();
     populateHallucinationProviderList();
+    populateEmbedTextProviderSelect();
     updateManageHyperlinksVisibility();
     renderBluebookResults();
     setActiveTab("manage-hyperlinks");
@@ -528,6 +549,7 @@ const TAB_PANEL_IDS: Record<TabId, string> = {
   "manage-hyperlinks": "manage-hyperlinks-panel",
   "bluebook-check": "bluebook-check-panel",
   "hallucination-check": "hallucination-check-panel",
+  "embed-cited-text": "embed-cited-text-panel",
 };
 
 function setActiveTab(tabName: TabId) {
@@ -546,6 +568,12 @@ function setActiveTab(tabName: TabId) {
     // this list was first built shows up-to-date "(not connected)" status, without losing the
     // user's checked/order selections.
     renderHallucinationProviderList();
+  }
+
+  if (tabName === "embed-cited-text") {
+    // Same reasoning as hallucination-check above: a provider connected on the Manage Hyperlinks
+    // tab since this panel was first opened should be reflected without losing the selection.
+    renderEmbedTextProviderStatus();
   }
 }
 
@@ -1010,6 +1038,231 @@ function renderHallucinationResults(results: HallucinationResult[]) {
         result.skippedProviders.length > 0
           ? `Not found on any connected platform. Not checked (not connected): ${result.skippedProviders.join(", ")}.`
           : "Not found on any selected platform — possible hallucination.";
+    }
+    row.appendChild(status);
+
+    fragment.appendChild(row);
+  });
+
+  container.appendChild(fragment);
+}
+
+function populateEmbedTextProviderSelect() {
+  const select = document.getElementById("embed-text-provider-select") as HTMLSelectElement | null;
+  if (!select) {
+    return;
+  }
+
+  select.innerHTML = "";
+  const capableProviders = citationProviderRegistry.list().filter(supportsOpinionText);
+
+  if (capableProviders.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No provider available";
+    select.appendChild(option);
+    select.disabled = true;
+    renderEmbedTextProviderStatus();
+    return;
+  }
+
+  select.disabled = false;
+  capableProviders.forEach((provider) => {
+    const option = document.createElement("option");
+    option.value = provider.id;
+    option.textContent = provider.name;
+    select.appendChild(option);
+  });
+
+  renderEmbedTextProviderStatus();
+}
+
+function getSelectedEmbedTextProvider(): OpinionTextCapableProvider | undefined {
+  const select = document.getElementById("embed-text-provider-select") as HTMLSelectElement | null;
+  if (!select || !select.value) {
+    return undefined;
+  }
+  const provider = citationProviderRegistry.get(select.value);
+  return provider && supportsOpinionText(provider) ? provider : undefined;
+}
+
+// Shown next to the provider dropdown so the user knows *before* clicking "Embed cited opinion
+// text" whether the run will actually be able to fetch anything -- this feature can't work
+// anonymously (see CourtListenerProvider.isReadyForOpinionText), and discovering that only after
+// every citation comes back "skipped" would be a frustrating way to find out.
+function renderEmbedTextProviderStatus() {
+  const statusEl = document.getElementById("embed-text-provider-status");
+  if (!statusEl) {
+    return;
+  }
+
+  const provider = getSelectedEmbedTextProvider();
+  statusEl.classList.remove("issue-ok", "issue-flagged");
+  if (!provider) {
+    statusEl.textContent = "";
+    return;
+  }
+
+  if (provider.isReadyForOpinionText()) {
+    statusEl.classList.add("issue-ok");
+    statusEl.textContent = `Ready -- connected to ${provider.name}.`;
+  } else {
+    statusEl.classList.add("issue-flagged");
+    statusEl.textContent = `Not ready -- connect to ${provider.name} with an API token on the Manage Hyperlinks tab first.`;
+  }
+}
+
+async function embedCitedOpinionText() {
+  const provider = getSelectedEmbedTextProvider();
+  if (!provider) {
+    setStatus("Choose a provider that supports embedding opinion text first.");
+    return;
+  }
+
+  setStatus(`Scanning the document for pincite citations to embed via ${provider.name}...`);
+
+  try {
+    await Word.run(async (context) => {
+      context.document.body.load("text");
+      await context.sync();
+      const bodyText = context.document.body.text;
+
+      const candidates = extractCaseCitations(bodyText);
+      const pinciteCitations = candidates
+        .map((raw) => ({ raw, parsed: parseCaseCitation(raw) }))
+        .filter((item): item is { raw: string; parsed: ParsedCitation } => Boolean(item.parsed?.pincite));
+
+      if (pinciteCitations.length === 0) {
+        renderEmbedTextResults([]);
+        setStatus("No citations with a pincite (a page beyond the first page) were found in the document.");
+        return;
+      }
+
+      const results: EmbedTextResult[] = [];
+
+      // Looked up one citation at a time (not in parallel), same reasoning as the other
+      // provider-backed workflows: stay within the provider's rate limits.
+      for (const { raw, parsed } of pinciteCitations) {
+        const targetPages = expandPincitePages(parsed.pincite as string);
+        const excerpt = await provider.fetchOpinionExcerpt(parsed, targetPages);
+
+        if (!excerpt) {
+          results.push({
+            raw,
+            embedded: false,
+            reason: provider.isReadyForOpinionText()
+              ? "Opinion text not found, or has no page markers matching this pincite."
+              : `Connect to ${provider.name} with an API token first.`,
+          });
+          continue;
+        }
+
+        const searchResults = context.document.body.search(raw, { matchCase: false, matchWholeWord: false });
+        searchResults.load("items");
+        await context.sync();
+
+        if (searchResults.items.length === 0) {
+          results.push({ raw, embedded: false, reason: "Could not find this citation's text in the document." });
+          continue;
+        }
+
+        // A Word comment is collapsed by default (just a margin icon) and expands on click --
+        // exactly the "embedded, expandable/collapsible" behavior this feature is for, using
+        // Word's own native UI instead of a custom widget.
+        searchResults.items[0].insertComment(`${EMBEDDED_TEXT_COMMENT_MARKER}\n\n${excerpt}`);
+        await context.sync();
+        results.push({ raw, embedded: true, reason: null });
+      }
+
+      renderEmbedTextResults(results);
+      const embeddedCount = results.filter((result) => result.embedded).length;
+      setStatus(`Embedded opinion text for ${embeddedCount} of ${pinciteCitations.length} pincite citation(s).`);
+    });
+  } catch (error) {
+    setStatus(`Unable to embed cited text. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function removeEmbeddedCitationText() {
+  setStatus("Removing WordClerk-embedded citation text...");
+
+  try {
+    await Word.run(async (context) => {
+      // document.body.getComments() (WordApi 1.4) is used instead of the desktop-only
+      // document.comments property (WordApiDesktop 1.4) for broader cross-platform support.
+      const comments = context.document.body.getComments();
+      comments.load("items");
+      await context.sync();
+
+      comments.items.forEach((comment) => comment.load("content"));
+      await context.sync();
+
+      const ours = comments.items.filter((comment) => comment.content.startsWith(EMBEDDED_TEXT_COMMENT_MARKER));
+      ours.forEach((comment) => comment.delete());
+      await context.sync();
+
+      setStatus(`Removed ${ours.length} embedded citation text comment(s).`);
+    });
+  } catch (error) {
+    setStatus(`Unable to remove embedded text. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function renderEmbedTextResults(results: EmbedTextResult[]) {
+  const container = document.getElementById("embed-text-results-list");
+  const summaryEl = document.getElementById("embed-text-results-summary");
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  if (summaryEl) {
+    summaryEl.innerHTML = "";
+  }
+
+  if (results.length === 0) {
+    container.innerHTML = '<p class="helper-text">No results yet. Click "Embed cited opinion text".</p>';
+    return;
+  }
+
+  const embeddedCount = results.filter((result) => result.embedded).length;
+  if (summaryEl) {
+    const embeddedSpan = document.createElement("span");
+    embeddedSpan.className = "summary-ok";
+    embeddedSpan.textContent = `${embeddedCount} embedded`;
+    summaryEl.appendChild(embeddedSpan);
+
+    const skippedCount = results.length - embeddedCount;
+    if (skippedCount > 0) {
+      summaryEl.appendChild(document.createTextNode(" · "));
+      const skippedSpan = document.createElement("span");
+      skippedSpan.className = "summary-warnings";
+      skippedSpan.textContent = `${skippedCount} skipped`;
+      summaryEl.appendChild(skippedSpan);
+    }
+  }
+
+  const fragment = document.createDocumentFragment();
+  results.forEach((result) => {
+    const row = document.createElement("div");
+    row.className = "bluebook-issue-row";
+
+    const label = document.createElement("button");
+    label.type = "button";
+    label.className = "citation-link";
+    label.title = "Click to find this citation in the document";
+    label.textContent = result.raw;
+    label.addEventListener("click", () => goToCitationInDocument(result.raw));
+    row.appendChild(label);
+
+    const status = document.createElement("p");
+    status.className = "helper-text";
+    if (result.embedded) {
+      status.classList.add("issue-ok");
+      status.textContent = "Embedded as a comment -- click the comment icon in the margin to expand it.";
+    } else {
+      status.classList.add("issue-flagged");
+      status.textContent = result.reason || "Not embedded.";
     }
     row.appendChild(status);
 

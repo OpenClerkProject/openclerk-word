@@ -60,3 +60,27 @@ export interface CitationProvider {
    */
   lookupCitation(citation: ParsedCitation): Promise<CitationMatch | null>;
 }
+
+/**
+ * Optional capability for providers that can supply a cited case's full opinion text, not just
+ * a hyperlink -- used by the "Embed Cited Text" workflow to pull the text at a specific pincite
+ * page (or pages) and attach it to the citation in the document. Not every CitationProvider can
+ * do this (LexisNexis/Westlaw/Bloomberg Law are hyperlink-only integrations today), so this is
+ * kept as a separate, optional interface rather than added to CitationProvider itself.
+ */
+export interface OpinionTextCapableProvider extends CitationProvider {
+  /**
+   * Fetches the opinion text covering the given (already-expanded, see providers/pincitePages.ts)
+   * pincite page numbers for a citation. Must resolve to null (never throw) when the citation
+   * isn't found, the provider isn't ready (see isReadyForOpinionText), the request fails, or the
+   * opinion's text has no page markers matching any of the requested pages.
+   */
+  fetchOpinionExcerpt(citation: ParsedCitation, targetPages: number[]): Promise<string | null>;
+  /** Whether this provider currently has what it needs (e.g. an API token) to fetch opinion text. */
+  isReadyForOpinionText(): boolean;
+}
+
+export function supportsOpinionText(provider: CitationProvider): provider is OpinionTextCapableProvider {
+  const candidate = provider as Partial<OpinionTextCapableProvider>;
+  return typeof candidate.fetchOpinionExcerpt === "function" && typeof candidate.isReadyForOpinionText === "function";
+}

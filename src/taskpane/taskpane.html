@@ -28,6 +28,7 @@
             <option value="manage-hyperlinks">Manage Hyperlinks</option>
             <option value="bluebook-check">Bluebook Check</option>
             <option value="hallucination-check">Find Hallucinations</option>
+            <option value="embed-cited-text">Embed Cited Text</option>
         </select>
 
         <section id="manage-hyperlinks-panel" class="tab-panel active">
@@ -121,6 +122,23 @@
                 <button id="check-hallucinations" class="ms-Button ms-Button--primary">Find Hallucinations</button>
             </div>
             <div id="hallucination-results-list" class="citation-list"></div>
+        </section>
+
+        <section id="embed-cited-text-panel" class="tab-panel">
+            <p class="ms-font-l">Finds case citations that cite a page beyond the first page of the opinion &mdash; a single pincite, a list of pages, or a page range &mdash; and embeds the cited court opinion text as a Word comment on that citation.</p>
+            <p class="helper-text">Comments are collapsed by default and expand when clicked, so the excerpt stays out of the way until you need it; use Word's own comment pane to review, reply to, or resolve them.</p>
+            <p class="helper-text">Requires a provider that can supply full opinion text, not just a hyperlink. Currently only CourtListener supports this, and it requires connecting an API token first (Manage Hyperlinks tab &rarr; Online Lookup &rarr; Connect) &mdash; this feature cannot work anonymously, unlike CourtListener's basic hyperlinking.</p>
+
+            <label class="ms-Label" for="embed-text-provider-select">Provider</label>
+            <select id="embed-text-provider-select" class="url-input"></select>
+            <p id="embed-text-provider-status" class="helper-text"></p>
+
+            <div class="button-row">
+                <button id="embed-cited-text" class="ms-Button ms-Button--primary">Embed cited opinion text</button>
+                <button id="remove-embedded-text" class="ms-Button">Remove embedded text</button>
+            </div>
+            <p id="embed-text-results-summary" class="results-summary"></p>
+            <div id="embed-text-results-list" class="citation-list"></div>
         </section>
 
         <p id="status" class="status" aria-live="polite">Choose a source document to begin.</p>

@@ -1,4 +1,5 @@
 import { ParsedCitation } from "../providers/types";
+import { reconstructFullPageNumber } from "../providers/pincitePages";
 import { BluebookIssue } from "./types";
 
 /**
@@ -47,8 +48,7 @@ export function checkPincitePageRange(citation: ParsedCitation): BluebookIssue[]
     }
     const [, start, writtenEnd] = rangeMatch;
 
-    const fullEnd =
-      writtenEnd.length < start.length ? start.slice(0, start.length - writtenEnd.length) + writtenEnd : writtenEnd;
+    const fullEnd = reconstructFullPageNumber(start, writtenEnd);
     const correctEnd = minimalDroppedForm(start, fullEnd);
 
     if (correctEnd !== writtenEnd) {

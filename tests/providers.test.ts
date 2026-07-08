@@ -276,6 +276,149 @@ describe('CourtListenerProvider', () => {
   test('is usable without any credentials', () => {
     expect(new CourtListenerProvider().isAuthenticated()).toBe(true);
   });
+
+  describe('fetchOpinionExcerpt (Embed Cited Text)', () => {
+    test('is not ready, and returns null, without an API token', async () => {
+      const provider = new CourtListenerProvider();
+      expect(provider.isReadyForOpinionText()).toBe(false);
+      await expect(provider.fetchOpinionExcerpt({ raw: EXAMPLE_CITATION }, [705])).resolves.toBeNull();
+    });
+
+    test('is ready once connected with an API token', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }) as unknown as typeof fetch;
+      const provider = new CourtListenerProvider();
+      await provider.authenticate({ apiToken: 'secret-token' });
+      expect(provider.isReadyForOpinionText()).toBe(true);
+    });
+
+    test('returns null for an empty target-pages list, without making a request', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+      global.fetch = mockFetch as unknown as typeof fetch;
+      const provider = new CourtListenerProvider();
+      await provider.authenticate({ apiToken: 'secret-token' });
+      mockFetch.mockClear();
+
+      await expect(provider.fetchOpinionExcerpt({ raw: EXAMPLE_CITATION }, [])).resolves.toBeNull();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    test('resolves the cluster via citation-lookup, then fetches and extracts the opinion excerpt', async () => {
+      const mockFetch = jest.fn();
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const provider = new CourtListenerProvider();
+      // Call 0: authenticate()'s validation request.
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      // Call 1: resolveClusterId's citation-lookup request.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            citation: '444 U.S. 490',
+            status: 200,
+            clusters: [{ absolute_url: '/opinion/108713/norfolk-western-railway-co-v-liepelt/' }],
+          },
+        ],
+      });
+      // Call 2: the opinions-by-cluster request.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [{ plain_text: '*489 Intro.\n*490 Holding starts here.\n*491 More text.' }],
+        }),
+      });
+
+      const excerpt = await provider.fetchOpinionExcerpt({ raw: EXAMPLE_CITATION }, [490]);
+      expect(excerpt).toContain('Holding starts here.');
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      const opinionsCallUrl = mockFetch.mock.calls[2][0];
+      const opinionsCallOptions = mockFetch.mock.calls[2][1];
+      expect(opinionsCallUrl).toBe('https://www.courtlistener.com/api/rest/v4/opinions/?cluster=108713');
+      expect(opinionsCallOptions.headers.Authorization).toBe('Token secret-token');
+    });
+
+    test('returns null when the citation cannot be resolved to a cluster', async () => {
+      const mockFetch = jest.fn();
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const provider = new CourtListenerProvider();
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [{ citation: '1 U.S. 200', status: 404, clusters: [] }],
+      });
+
+      await expect(provider.fetchOpinionExcerpt({ raw: '1 U.S. 200' }, [200])).resolves.toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    test('returns null when the opinion text has no marker for the requested page', async () => {
+      const mockFetch = jest.fn();
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const provider = new CourtListenerProvider();
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            citation: '444 U.S. 490',
+            status: 200,
+            clusters: [{ absolute_url: '/opinion/108713/norfolk-western-railway-co-v-liepelt/' }],
+          },
+        ],
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ plain_text: '*489 Intro.\n*490 Holding starts here.' }] }),
+      });
+
+      await expect(provider.fetchOpinionExcerpt({ raw: EXAMPLE_CITATION }, [999])).resolves.toBeNull();
+    });
+
+    test('falls back to stripped HTML when plain_text is unavailable', async () => {
+      const mockFetch = jest.fn();
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const provider = new CourtListenerProvider();
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+      await provider.authenticate({ apiToken: 'secret-token' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            citation: '444 U.S. 490',
+            status: 200,
+            clusters: [{ absolute_url: '/opinion/108713/norfolk-western-railway-co-v-liepelt/' }],
+          },
+        ],
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [{ html_with_citations: '<p>*489 Intro.</p><p>*490 <b>Holding</b> from HTML.</p>' }],
+        }),
+      });
+
+      const excerpt = await provider.fetchOpinionExcerpt({ raw: EXAMPLE_CITATION }, [490]);
+      expect(excerpt).toContain('Holding from HTML.');
+    });
+  });
 });
 
 describe('EnterpriseCitationProvider (LexisNexis as representative)', () => {
