@@ -234,6 +234,40 @@ describe('CourtListenerProvider', () => {
     );
   });
 
+  test('returns an ambiguous match (not null) when the API reports status 300 Multiple Choices', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [
+        {
+          citation: '1 H. 150',
+          status: 300,
+          clusters: [
+            {
+              case_name: 'Louis v. Steamboat Buckeye',
+              absolute_url: '/opinion/1/louis-v-steamboat-buckeye/',
+            },
+            {
+              case_name: 'Fell v. Parke',
+              absolute_url: '/opinion/2/fell-v-parke/',
+            },
+          ],
+        },
+      ],
+    });
+    global.fetch = mockFetch as unknown as typeof fetch;
+
+    const provider = new CourtListenerProvider();
+    const match = await provider.lookupCitation({ raw: '1 H. 150' });
+
+    expect(match).toEqual({
+      url: 'https://www.courtlistener.com/opinion/1/louis-v-steamboat-buckeye/',
+      caseName: 'Louis v. Steamboat Buckeye',
+      citation: '1 H. 150',
+      ambiguous: true,
+    });
+  });
+
   test('moves on (returns null) when the citation is not found', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

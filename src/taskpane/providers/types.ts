@@ -26,6 +26,14 @@ export interface CitationMatch {
   caseName?: string;
   /** Normalized citation string returned by the provider, if any. */
   citation?: string;
+  /**
+   * True when the citation is valid and real but matches more than one case (e.g.
+   * CourtListener's "300 Multiple Choices" status) -- `url`/`caseName` are only a best-effort
+   * guess at one of the matches. Callers that need one confirmed target (auto-hyperlinking)
+   * should treat this like "not found"; callers that only need to confirm the citation is real
+   * (hallucination detection) should treat it as verified.
+   */
+  ambiguous?: boolean;
 }
 
 export interface ProviderCredentialField {
@@ -57,6 +65,8 @@ export interface CitationProvider {
    * Looks up a single citation. Must resolve to null (never throw) when the
    * citation isn't found, the provider isn't authenticated, or the request
    * fails -- callers treat a null result as "move on to the next citation".
+   * A non-null result with `ambiguous: true` means the citation is real but
+   * matched more than one case; see CitationMatch.ambiguous.
    */
   lookupCitation(citation: ParsedCitation): Promise<CitationMatch | null>;
 }

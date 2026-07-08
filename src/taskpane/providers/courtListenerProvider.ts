@@ -90,7 +90,13 @@ export class CourtListenerProvider implements CitationProvider {
     }
 
     for (const result of results) {
-      if (result.status !== 200 || !Array.isArray(result.clusters) || result.clusters.length === 0) {
+      // 200 = resolved to exactly one case. 300 ("Multiple Choices") means the citation is
+      // still real and valid -- it just matches more than one case -- so it must not be
+      // treated the same as a genuine miss (404 not found, 400 unrecognized reporter, etc.).
+      if (result.status !== 200 && result.status !== 300) {
+        continue;
+      }
+      if (!Array.isArray(result.clusters) || result.clusters.length === 0) {
         continue;
       }
 
@@ -103,6 +109,7 @@ export class CourtListenerProvider implements CitationProvider {
         url: `${SITE_ORIGIN}${cluster.absolute_url}`,
         caseName: cluster.case_name,
         citation: result.citation,
+        ...(result.status === 300 ? { ambiguous: true } : {}),
       };
     }
 

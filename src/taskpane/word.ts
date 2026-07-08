@@ -24,7 +24,7 @@ type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check";
 type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
-type HallucinationResult = { raw: string; verifiedVia: string | null; skippedProviders: string[] };
+type HallucinationResult = { raw: string; verifiedVia: string | null; ambiguous: boolean; skippedProviders: string[] };
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
 // decompress to a huge amount of data in memory ("zip bomb") and hang or crash the taskpane.
@@ -471,7 +471,7 @@ async function applyHyperlinksViaProvider() {
       for (const raw of candidates) {
         const parsed = parseCaseCitation(raw) || { raw };
         const match = await provider.lookupCitation(parsed);
-        if (!match || !isSafeHyperlinkUrl(match.url)) {
+        if (!match || match.ambiguous || !isSafeHyperlinkUrl(match.url)) {
           skippedCount += 1;
           continue;
         }
@@ -813,6 +813,7 @@ async function checkForHallucinations() {
       for (const raw of candidates) {
         const parsed = parseCaseCitation(raw) || { raw };
         let verifiedVia: string | null = null;
+        let ambiguous = false;
         const skippedProviders: string[] = [];
 
         for (const provider of selectedProviders) {
@@ -823,11 +824,12 @@ async function checkForHallucinations() {
           const match = await provider.lookupCitation(parsed);
           if (match) {
             verifiedVia = provider.name;
+            ambiguous = Boolean(match.ambiguous);
             break;
           }
         }
 
-        results.push({ raw, verifiedVia, skippedProviders });
+        results.push({ raw, verifiedVia, ambiguous, skippedProviders });
       }
 
       renderHallucinationResults(results);
@@ -872,7 +874,9 @@ function renderHallucinationResults(results: HallucinationResult[]) {
     status.className = "helper-text";
     if (result.verifiedVia) {
       status.classList.add("issue-ok");
-      status.textContent = `Verified via ${result.verifiedVia}.`;
+      status.textContent = result.ambiguous
+        ? `Verified via ${result.verifiedVia} (matches multiple cases -- confirm which one before relying on it).`
+        : `Verified via ${result.verifiedVia}.`;
     } else {
       status.classList.add("issue-flagged");
       status.textContent =
