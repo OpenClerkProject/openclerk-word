@@ -176,3 +176,13 @@ button.ms-Button--primary:hover {
 b {
     font-weight: bold;
 }
+
+.app-footer {
+    margin-top: 4px;
+    text-align: center;
+}
+
+.app-footer a {
+    font-size: 12px;
+    color: #6f4518;
+}
