@@ -3,6 +3,7 @@ import { BluebookIssue } from "./types";
 import { checkReporterAbbreviation } from "./reporterRules";
 import { checkFullCaseNameAbbreviations } from "./checkCaseNameAbbreviations";
 import { checkCourtStateAbbreviation } from "./courtRules";
+import { checkPincitePageRange } from "./pageRangeRules";
 
 /**
  * Checks for Bluebook Rule 10 (case citation) conventions that have stayed
@@ -31,6 +32,7 @@ export function checkCommonCaseCitationRules(citation: ParsedCitation): Bluebook
   issues.push(...checkReporterAbbreviation(citation));
   issues.push(...checkFullCaseNameAbbreviations(citation));
   issues.push(...checkCourtStateAbbreviation(citation));
+  issues.push(...checkPincitePageRange(citation));
 
   if (!citation.year) {
     issues.push({

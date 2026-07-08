@@ -132,6 +132,58 @@ describe('reporter abbreviation checks (vendored reporters-db Table T1 data)', (
     expect(flagged).toBeDefined();
     expect(flagged?.severity).toBe('warning');
   });
+
+  test('flags a reporter spacing mistake (Rule 6.1) not already recorded as a specific reporters-db correction', () => {
+    // "Ohio App." is a valid form, but reporters-db has no recorded correction for the
+    // run-together "OhioApp." -- only the generic spacing check catches this one.
+    const issues = checkCommonCaseCitationRules(parseOrThrow('Smith v. Jones, 123 OhioApp. 456 (2010)'));
+    const flagged = issues.find((i) => i.ruleId === 'reporter-spacing');
+    expect(flagged).toBeDefined();
+    expect(flagged?.message).toContain('Ohio App.');
+    expect(flagged?.severity).toBe('error');
+  });
+
+  test('a specific reporters-db correction still wins over the generic spacing check', () => {
+    // "F. 2d" already has a recorded reporters-db correction to "F.2d" -- confirms the new
+    // generic spacing check doesn't shadow the existing, more specific message.
+    const issues = checkCommonCaseCitationRules(parseOrThrow('Smith v. Jones, 123 F. 2d 456 (2d Cir. 2010)'));
+    expect(issues.some((i) => i.ruleId === 'reporter-nonstandard-form')).toBe(true);
+    expect(issues.some((i) => i.ruleId === 'reporter-spacing')).toBe(false);
+  });
+});
+
+describe('page-range digit-dropping checks (Bluebook Rule 3.2)', () => {
+  test('flags a page range written in full instead of with dropped digits', () => {
+    const issues = checkCommonCaseCitationRules(
+      parseOrThrow('United States v. Nixon, 418 U.S. 683, 705-706 (1974)')
+    );
+    const flagged = issues.find((i) => i.ruleId === 'pincite-range-digits');
+    expect(flagged).toBeDefined();
+    expect(flagged?.message).toContain('705-06');
+  });
+
+  test('does not flag an already-correctly-dropped page range', () => {
+    const issues = checkCommonCaseCitationRules(
+      parseOrThrow('United States v. Nixon, 418 U.S. 683, 705-06 (1974)')
+    );
+    expect(issues.some((i) => i.ruleId === 'pincite-range-digits')).toBe(false);
+  });
+
+  test('flags an under-dropped page range (fewer than the required last two digits)', () => {
+    const issues = checkCommonCaseCitationRules(
+      parseOrThrow('United States v. Nixon, 418 U.S. 683, 705-6 (1974)')
+    );
+    const flagged = issues.find((i) => i.ruleId === 'pincite-range-digits');
+    expect(flagged).toBeDefined();
+    expect(flagged?.message).toContain('705-06');
+  });
+
+  test('does not flag a single (non-range) pincite page', () => {
+    const issues = checkCommonCaseCitationRules(
+      parseOrThrow('Norfolk & W. Ry. Co. v. Liepelt, 444 U.S. 490, 496 (1980)')
+    );
+    expect(issues.some((i) => i.ruleId === 'pincite-range-digits')).toBe(false);
+  });
 });
 
 describe('full case-name abbreviation table (vendored reporters-db data, all editions)', () => {

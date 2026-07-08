@@ -120,13 +120,14 @@ Because the three enterprise integrations are contract-gated and provisioned per
 The **Bluebook Check** tab scans the current document's case citations for common Bluebook formatting problems and lists any it finds, per citation. It's a mechanical checker, not the rulebook: it verifies conventions like
 
 - `"v."` is used (not `"v"` or `"vs."`) between party names,
-- the reporter abbreviation is a recognized, correctly-formatted form (see "Vendored reference data" below) — including the ordinal typo `"2nd"`/`"3rd"` instead of `"2d"`/`"3d"`,
+- the reporter abbreviation is a recognized, correctly-formatted form (see "Vendored reference data" below) — including the ordinal typo `"2nd"`/`"3rd"` instead of `"2d"`/`"3d"` and a Rule 6.1 spacing mistake (e.g. `"S.Ct."` instead of `"S. Ct."`),
 - every full word in the case name that Table T6 abbreviates is actually abbreviated (e.g. `"Company"` → `"Co."`, `"Association"` → `"Ass'n"`),
 - a decision year is present in the parenthetical,
-- a court abbreviation is present for any reporter other than U.S. Reports (`"U.S."`, where the Supreme Court is implied), and
-- the court/jurisdiction parenthetical uses the Table T10 state abbreviation rather than the spelled-out state name (e.g. `"California"` → `"Cal."`),
+- a court abbreviation is present for any reporter other than U.S. Reports (`"U.S."`, where the Supreme Court is implied),
+- the court/jurisdiction parenthetical uses the Table T10 state abbreviation rather than the spelled-out state name (e.g. `"California"` → `"Cal."`), and
+- a pinpoint page range drops repetitious digits per Rule 3.2 (e.g. `"705-706"` should be `"705-06"`),
 
-plus a small set of edition-specific case-name abbreviations (see below). **It does not check every Bluebook rule** (typeface/italics, signal usage, pinpoint-citation style for non-case authorities, etc.) and isn't a substitute for the actual rulebook — treat a clean result as "no obvious mechanical problems," not "Bluebook-perfect."
+plus a small set of edition-specific case-name abbreviations (see below). **It does not check every Bluebook rule** (typeface/italics, signal/authority ordering within a citation string, short-form/`id.` citations, parenthetical-phrase formatting, Lexis/Westlaw or internet-source citations, etc.) and isn't a substitute for the actual rulebook — treat a clean result as "no obvious mechanical problems," not "Bluebook-perfect."
 
 Each citation in the results list is clickable: clicking it searches the document for that exact citation text and selects it, which moves Word's view to show where it actually appears — no manual scrolling/searching needed to find a flagged citation.
 

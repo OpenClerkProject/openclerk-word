@@ -49,6 +49,34 @@ const { validForms, corrections } = applyManualReporterOverrides(
 );
 
 /**
+ * Builds a "spacing-insensitive" index of validForms -- keyed by each valid form with internal
+ * whitespace removed, mapping to the correctly-spaced form -- to catch Bluebook Rule 6.1 spacing
+ * mistakes (e.g. "S.Ct." instead of "S. Ct.") generically. reporters-db's recorded "variations"
+ * only cover the specific malformed spellings someone bothered to record (same limitation noted
+ * for the ordinal-typo check above); a spot-check found 805 of the 920 valid forms that contain
+ * internal spacing have no recorded spacing-variant correction at all. A form that multiple
+ * distinct valid forms collapse to (rare, but possible) is excluded rather than guessed at.
+ */
+export function buildReporterSpacingLookup(forms: Record<string, string>): Record<string, string> {
+  const strippedToForm: Record<string, string> = {};
+  const ambiguous = new Set<string>();
+  for (const form of Object.keys(forms)) {
+    const stripped = form.replace(/\s+/g, "");
+    if (stripped in strippedToForm && strippedToForm[stripped] !== form) {
+      ambiguous.add(stripped);
+      continue;
+    }
+    strippedToForm[stripped] = form;
+  }
+  Array.from(ambiguous).forEach((key) => {
+    delete strippedToForm[key];
+  });
+  return strippedToForm;
+}
+
+const spacingLookup = buildReporterSpacingLookup(validForms);
+
+/**
  * Checks a citation's reporter abbreviation against Free Law Project's reporters-db (Table T1
  * data, see generated/reporterAbbreviations.generated.ts) -- vendored at dev time from
  * https://github.com/freelawproject/reporters-db, not fetched at runtime.
@@ -87,6 +115,20 @@ export function checkReporterAbbreviation(citation: ParsedCitation): BluebookIss
       {
         ruleId: "reporter-nonstandard-form",
         message: `"${reporter}" is a known non-standard form of "${correction.correctForm}" (${correction.name}); use "${correction.correctForm}" (Table T1).`,
+        severity: "error",
+      },
+    ];
+  }
+
+  // Generic Rule 6.1 spacing check -- only reached once the reporter didn't match anything
+  // reporters-db already recorded a specific correction for above.
+  const strippedReporter = reporter.replace(/\s+/g, "");
+  const correctlySpaced = spacingLookup[strippedReporter];
+  if (correctlySpaced && correctlySpaced !== reporter) {
+    return [
+      {
+        ruleId: "reporter-spacing",
+        message: `Reporter spacing should be "${correctlySpaced}" (Bluebook Rule 6.1: close up adjacent single capitals, but space out longer abbreviations) -- found "${reporter}".`,
         severity: "error",
       },
     ];
