@@ -114,9 +114,36 @@ button.ms-Button--primary:hover {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 260px;
+    max-height: 320px;
     overflow-y: auto;
     padding-right: 2px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #2a2a2a;
+}
+
+.results-summary {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.results-summary .summary-errors {
+    color: #8b3a1a;
+}
+
+.results-summary .summary-warnings {
+    color: #8a6414;
+}
+
+.results-summary .summary-ok {
+    color: #2f6e2f;
 }
 
 .citation-row {
@@ -219,6 +246,41 @@ button.ms-Button--primary:hover {
 
 .bluebook-issue-row .issue-flagged {
     color: #8b3a1a;
+}
+
+.bluebook-issue-item-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bluebook-issue-item {
+    margin: 0;
+    padding: 2px 0 2px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-left: 3px solid transparent;
+}
+
+.bluebook-issue-item.severity-error {
+    border-left-color: #b3401c;
+    color: #8b3a1a;
+}
+
+.bluebook-issue-item.severity-warning {
+    border-left-color: #c99a2e;
+    color: #6b5416;
+}
+
+.report-correction-link {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6f4518;
 }
 
 .helper-text {

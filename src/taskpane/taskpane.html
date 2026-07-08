@@ -94,7 +94,7 @@
 
         <section id="bluebook-check-panel" class="tab-panel">
             <p class="ms-font-l">Scan the current document's case citations for common Bluebook formatting problems.</p>
-            <p class="helper-text">This checks mechanical conventions (the "v." abbreviation, reporter series form, year and court-abbreviation presence, and a few edition-specific case-name abbreviations) based on publicly documented Bluebook rules. It is not a substitute for the actual rulebook and does not check every rule.</p>
+            <p class="helper-text">This checks mechanical conventions (the "v." abbreviation, reporter series form and spacing, page-range digit-dropping, year and court-abbreviation presence, and a few edition-specific case-name abbreviations) based on publicly documented Bluebook rules. It is not a substitute for the actual rulebook and does not check every rule.</p>
 
             <label class="ms-Label" for="bluebook-edition-select">Bluebook edition</label>
             <select id="bluebook-edition-select" class="url-input"></select>
@@ -103,6 +103,11 @@
             <div class="button-row">
                 <button id="check-bluebook-citations" class="ms-Button ms-Button--primary">Check citations</button>
             </div>
+            <label class="checkbox-label">
+                <input type="checkbox" id="bluebook-show-flagged-only" />
+                Only show citations with issues
+            </label>
+            <p id="bluebook-results-summary" class="results-summary"></p>
             <div id="bluebook-issue-list" class="citation-list"></div>
         </section>
 

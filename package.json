@@ -31,6 +31,7 @@
     "install:addin:dry-run": "node scripts/install-wordclerk.js --dry-run",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js",
+    "bluebook:update-data": "node scripts/generate-bluebook-data.js",
     "test": "jest"
   },
   "dependencies": {

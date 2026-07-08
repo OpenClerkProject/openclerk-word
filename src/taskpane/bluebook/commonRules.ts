@@ -1,5 +1,9 @@
 import { ParsedCitation } from "../providers/types";
 import { BluebookIssue } from "./types";
+import { checkReporterAbbreviation } from "./reporterRules";
+import { checkFullCaseNameAbbreviations } from "./checkCaseNameAbbreviations";
+import { checkCourtStateAbbreviation } from "./courtRules";
+import { checkPincitePageRange } from "./pageRangeRules";
 
 /**
  * Checks for Bluebook Rule 10 (case citation) conventions that have stayed
@@ -25,13 +29,10 @@ export function checkCommonCaseCitationRules(citation: ParsedCitation): Bluebook
     });
   }
 
-  if (citation.reporter && /\b\d(?:nd|rd)\b/.test(citation.reporter)) {
-    issues.push({
-      ruleId: "reporter-ordinal",
-      message: `Reporter series should use "2d"/"3d", not the ordinal form found in "${citation.reporter}".`,
-      severity: "error",
-    });
-  }
+  issues.push(...checkReporterAbbreviation(citation));
+  issues.push(...checkFullCaseNameAbbreviations(citation));
+  issues.push(...checkCourtStateAbbreviation(citation));
+  issues.push(...checkPincitePageRange(citation));
 
   if (!citation.year) {
     issues.push({

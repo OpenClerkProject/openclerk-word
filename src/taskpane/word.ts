@@ -15,8 +15,14 @@ import {
   escapeHtml,
   isSafeHyperlinkUrl,
 } from "./utils";
-import { citationProviderRegistry, parseCaseCitation, extractCaseCitations, CitationProvider } from "./providers";
-import { bluebookRuleSetRegistry, BluebookRuleSet } from "./bluebook";
+import {
+  citationProviderRegistry,
+  parseCaseCitation,
+  extractCaseCitations,
+  CitationProvider,
+  ParsedCitation,
+} from "./providers";
+import { bluebookRuleSetRegistry, BluebookRuleSet, BluebookIssue } from "./bluebook";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
@@ -25,6 +31,7 @@ type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
 type HallucinationResult = { raw: string; verifiedVia: string | null; skippedProviders: string[] };
+type BluebookCheckedCitation = { raw: string; parsed: ParsedCitation | null; issues: BluebookIssue[] };
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
 // decompress to a huge amount of data in memory ("zip bomb") and hang or crash the taskpane.
@@ -45,6 +52,8 @@ let parentheticalEntries: ParentheticalEntry[] = [];
 let hallucinationProviderOrder: HallucinationProviderEntry[] = [];
 let hyperlinkScope: HyperlinkScope = "case-law";
 let caseLawSource: CaseLawSource = "file";
+let lastBluebookResults: BluebookCheckedCitation[] | null = null;
+let bluebookShowFlaggedOnly = false;
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
@@ -65,6 +74,7 @@ Office.onReady((info) => {
     const applyOnlineHyperlinksButton = document.getElementById("apply-online-hyperlinks") as HTMLButtonElement | null;
     const bluebookEditionSelect = document.getElementById("bluebook-edition-select") as HTMLSelectElement | null;
     const checkBluebookCitationsButton = document.getElementById("check-bluebook-citations") as HTMLButtonElement | null;
+    const bluebookShowFlaggedOnlyCheckbox = document.getElementById("bluebook-show-flagged-only") as HTMLInputElement | null;
     const checkHallucinationsButton = document.getElementById("check-hallucinations") as HTMLButtonElement | null;
 
     if (sideloadMessage) {
@@ -119,10 +129,19 @@ Office.onReady((info) => {
       applyOnlineHyperlinksButton.addEventListener("click", applyHyperlinksViaProvider);
     }
     if (bluebookEditionSelect) {
-      bluebookEditionSelect.addEventListener("change", renderBluebookEditionDescription);
+      bluebookEditionSelect.addEventListener("change", () => {
+        renderBluebookEditionDescription();
+        invalidateBluebookResults();
+      });
     }
     if (checkBluebookCitationsButton) {
       checkBluebookCitationsButton.addEventListener("click", checkBluebookCitations);
+    }
+    if (bluebookShowFlaggedOnlyCheckbox) {
+      bluebookShowFlaggedOnlyCheckbox.addEventListener("change", () => {
+        bluebookShowFlaggedOnly = bluebookShowFlaggedOnlyCheckbox.checked;
+        renderBluebookResults();
+      });
     }
     if (checkHallucinationsButton) {
       checkHallucinationsButton.addEventListener("click", checkForHallucinations);
@@ -132,6 +151,7 @@ Office.onReady((info) => {
     populateBluebookEditionSelect();
     populateHallucinationProviderList();
     updateManageHyperlinksVisibility();
+    renderBluebookResults();
     setActiveTab("manage-hyperlinks");
   }
 });
@@ -600,23 +620,67 @@ async function checkBluebookCitations() {
       const bodyText = context.document.body.text;
 
       const candidates = extractCaseCitations(bodyText);
-      renderBluebookIssues(candidates, ruleSet);
+      lastBluebookResults = candidates.map((raw) => {
+        const parsed = parseCaseCitation(raw);
+        const issues = parsed ? ruleSet.checkCitation(parsed) : [];
+        return { raw, parsed, issues };
+      });
+      renderBluebookResults();
 
       if (candidates.length === 0) {
         setStatus("No case citations were found in the current document.");
         return;
       }
 
-      const flaggedCount = candidates.filter((raw) => {
-        const parsed = parseCaseCitation(raw);
-        return parsed && ruleSet.checkCitation(parsed).length > 0;
-      }).length;
+      const errorCount = lastBluebookResults.reduce(
+        (count, result) => count + result.issues.filter((issue) => issue.severity === "error").length,
+        0
+      );
+      const warningCount = lastBluebookResults.reduce(
+        (count, result) => count + result.issues.filter((issue) => issue.severity === "warning").length,
+        0
+      );
+      const flaggedCount = lastBluebookResults.filter((result) => !result.parsed || result.issues.length > 0).length;
 
-      setStatus(`Checked ${candidates.length} citation(s); ${flaggedCount} had possible formatting issues.`);
+      setStatus(
+        `Checked ${candidates.length} citation(s) against the ${ruleSet.name}; ${flaggedCount} flagged ` +
+          `(${errorCount} error(s), ${warningCount} warning(s)).`
+      );
     });
   } catch (error) {
     setStatus(`Unable to check citations. ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function invalidateBluebookResults() {
+  if (lastBluebookResults === null) {
+    return;
+  }
+  lastBluebookResults = null;
+  const summary = document.getElementById("bluebook-results-summary");
+  if (summary) {
+    summary.textContent = "";
+  }
+  const container = document.getElementById("bluebook-issue-list");
+  if (container) {
+    container.innerHTML =
+      '<p class="helper-text">The Bluebook edition changed -- click "Check citations" again to see results for the new edition.</p>';
+  }
+}
+
+/**
+ * Deep-links into the "Bluebook citation correction" GitHub Issue Form (see
+ * .github/ISSUE_TEMPLATE/bluebook-correction.yml and CONTRIBUTING.md) with the flagged citation
+ * and rule already filled in, so reporting a possible false positive doesn't require retyping it.
+ */
+function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookIssue): string {
+  const params = new URLSearchParams({
+    template: "bluebook-correction.yml",
+    title: `[Bluebook correction] Possible false positive: ${issue.ruleId}`,
+    "citation-example": citationText,
+    "whats-wrong": `WordClerk flagged this citation with rule "${issue.ruleId}":\n\n${issue.message}\n\nI believe this flag is incorrect because: `,
+  });
+  return `https://github.com/wbarnha/WordClerk/issues/new?${params.toString()}`;
 }
 
 async function goToCitationInDocument(citationText: string) {
@@ -645,23 +709,69 @@ async function goToCitationInDocument(citationText: string) {
   }
 }
 
-function renderBluebookIssues(candidates: string[], ruleSet: BluebookRuleSet) {
+function renderBluebookResults() {
   const container = document.getElementById("bluebook-issue-list");
+  const summaryEl = document.getElementById("bluebook-results-summary");
   if (!container) {
     return;
   }
 
   container.innerHTML = "";
-  if (candidates.length === 0) {
+  if (summaryEl) {
+    summaryEl.innerHTML = "";
+  }
+
+  if (lastBluebookResults === null) {
     container.innerHTML = '<p class="helper-text">No case citations found yet. Click "Check citations".</p>';
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-  candidates.forEach((raw) => {
-    const parsed = parseCaseCitation(raw);
-    const issues = parsed ? ruleSet.checkCitation(parsed) : [];
+  if (lastBluebookResults.length === 0) {
+    container.innerHTML = '<p class="helper-text">No case citations were found in the current document.</p>';
+    return;
+  }
 
+  const errorCount = lastBluebookResults.reduce(
+    (count, result) => count + result.issues.filter((issue) => issue.severity === "error").length,
+    0
+  );
+  const warningCount = lastBluebookResults.reduce(
+    (count, result) => count + result.issues.filter((issue) => issue.severity === "warning").length,
+    0
+  );
+  const cleanCount = lastBluebookResults.filter((result) => result.parsed && result.issues.length === 0).length;
+
+  if (summaryEl) {
+    const parts: { text: string; className: string }[] = [];
+    if (errorCount > 0) {
+      parts.push({ text: `${errorCount} error${errorCount === 1 ? "" : "s"}`, className: "summary-errors" });
+    }
+    if (warningCount > 0) {
+      parts.push({ text: `${warningCount} warning${warningCount === 1 ? "" : "s"}`, className: "summary-warnings" });
+    }
+    parts.push({ text: `${cleanCount} clean`, className: "summary-ok" });
+    parts.forEach((part, index) => {
+      const span = document.createElement("span");
+      span.className = part.className;
+      span.textContent = part.text;
+      summaryEl.appendChild(span);
+      if (index < parts.length - 1) {
+        summaryEl.appendChild(document.createTextNode(" · "));
+      }
+    });
+  }
+
+  const visibleResults = bluebookShowFlaggedOnly
+    ? lastBluebookResults.filter((result) => !result.parsed || result.issues.length > 0)
+    : lastBluebookResults;
+
+  if (visibleResults.length === 0) {
+    container.innerHTML = '<p class="helper-text">No flagged citations -- everything checked out clean.</p>';
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  visibleResults.forEach(({ raw, parsed, issues }) => {
     const row = document.createElement("div");
     row.className = "bluebook-issue-row";
 
@@ -673,21 +783,42 @@ function renderBluebookIssues(candidates: string[], ruleSet: BluebookRuleSet) {
     label.addEventListener("click", () => goToCitationInDocument(raw));
     row.appendChild(label);
 
-    const result = document.createElement("p");
-    result.className = "helper-text";
     if (!parsed) {
-      result.classList.add("issue-flagged");
-      result.textContent = "Could not parse this citation's structure.";
+      const result = document.createElement("p");
+      result.className = "helper-text issue-flagged";
+      result.textContent =
+        "Could not parse this citation's structure -- this can mean a real formatting problem, or just a " +
+        "citation shape this tool doesn't yet recognize (e.g. a parallel citation or a nominative reporter). " +
+        "Verify it manually.";
+      row.appendChild(result);
     } else if (issues.length === 0) {
-      result.classList.add("issue-ok");
+      const result = document.createElement("p");
+      result.className = "helper-text issue-ok";
       result.textContent = "No issues found.";
+      row.appendChild(result);
     } else {
-      result.classList.add("issue-flagged");
-      result.textContent = issues
-        .map((issue) => `${issue.severity === "error" ? "Error" : "Warning"}: ${issue.message}`)
-        .join(" ");
+      const list = document.createElement("ul");
+      list.className = "bluebook-issue-item-list";
+      issues.forEach((issue) => {
+        const item = document.createElement("li");
+        item.className = `bluebook-issue-item severity-${issue.severity}`;
+
+        const text = document.createElement("span");
+        text.textContent = `${issue.severity === "error" ? "Error" : "Warning"}: ${issue.message}`;
+        item.appendChild(text);
+
+        const reportLink = document.createElement("a");
+        reportLink.className = "report-correction-link";
+        reportLink.href = buildBluebookCorrectionReportUrl(raw, issue);
+        reportLink.target = "_blank";
+        reportLink.rel = "noopener noreferrer";
+        reportLink.textContent = "Report as wrong";
+        item.appendChild(reportLink);
+
+        list.appendChild(item);
+      });
+      row.appendChild(list);
     }
-    row.appendChild(result);
 
     fragment.appendChild(row);
   });
