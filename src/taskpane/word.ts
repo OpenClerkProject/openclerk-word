@@ -19,6 +19,7 @@ import {
   citationProviderRegistry,
   parseCaseCitation,
   extractCaseCitations,
+  supportsRateLimitAwareness,
   CitationProvider,
   ParsedCitation,
 } from "./providers";
@@ -30,7 +31,12 @@ type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check";
 type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
-type HallucinationResult = { raw: string; verifiedVia: string | null; skippedProviders: string[] };
+type HallucinationResult = {
+  raw: string;
+  verifiedVia: string | null;
+  skippedProviders: string[];
+  rateLimitedProviders: string[];
+};
 type BluebookCheckedCitation = { raw: string; parsed: ParsedCitation | null; issues: BluebookIssue[] };
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
@@ -486,37 +492,58 @@ async function applyHyperlinksViaProvider() {
 
       let linkedCount = 0;
       let skippedCount = 0;
+      let rateLimitedCount = 0;
 
       // Looked up one at a time (not in parallel) to stay within each provider's rate limits.
       for (const raw of candidates) {
-        const parsed = parseCaseCitation(raw) || { raw };
-        const match = await provider.lookupCitation(parsed);
-        if (!match || !isSafeHyperlinkUrl(match.url)) {
+        const searchResults = context.document.body.search(raw, { matchCase: false, matchWholeWord: false });
+        searchResults.load("items");
+        await context.sync();
+
+        if (searchResults.items.length === 0) {
           skippedCount += 1;
           continue;
         }
 
-        const results = context.document.body.search(raw, { matchCase: false, matchWholeWord: false });
-        results.load("items");
+        // Load hyperlink status for every instance before deciding whether a lookup is even
+        // needed -- if every instance of this citation already has a hyperlink, skip the API
+        // call entirely. This matters more than it might seem: with CourtListener's tight
+        // default rate limit, re-running this scan after a partial run should spend its limited
+        // quota on the citations that still need it, not re-verify ones already done.
+        searchResults.items.forEach((item) => item.hyperlinks.load("items"));
         await context.sync();
 
-        for (const item of results.items) {
-          const hyperlinks = item.hyperlinks;
-          hyperlinks.load("items");
-          await context.sync();
+        const unlinkedItems = searchResults.items.filter((item) => item.hyperlinks.items.length === 0);
+        if (unlinkedItems.length === 0) {
+          linkedCount += 1;
+          continue;
+        }
 
-          if (hyperlinks.items.length > 0) {
-            continue;
+        const parsed = parseCaseCitation(raw) || { raw };
+        const match = await provider.lookupCitation(parsed);
+        if (!match || !isSafeHyperlinkUrl(match.url)) {
+          if (supportsRateLimitAwareness(provider) && provider.wasLastRequestRateLimited()) {
+            rateLimitedCount += 1;
+          } else {
+            skippedCount += 1;
           }
+          continue;
+        }
+
+        for (const item of unlinkedItems) {
           await applyHyperlinkToItem(context, item, match.url, raw);
         }
 
         linkedCount += 1;
       }
 
+      const rateLimitNote =
+        rateLimitedCount > 0
+          ? ` ${rateLimitedCount} were rate-limited by ${provider.name} -- wait a minute and click "Scan & hyperlink via API" again to pick up the rest (already-linked citations won't be re-checked).`
+          : "";
       setStatus(
         `Linked ${linkedCount} of ${candidates.length} citation(s) via ${provider.name}. ` +
-          `${skippedCount} could not be resolved and were left unchanged.`
+          `${skippedCount} could not be resolved and were left unchanged.${rateLimitNote}`
       );
     });
   } catch (error) {
@@ -945,6 +972,7 @@ async function checkForHallucinations() {
         const parsed = parseCaseCitation(raw) || { raw };
         let verifiedVia: string | null = null;
         const skippedProviders: string[] = [];
+        const rateLimitedProviders: string[] = [];
 
         for (const provider of selectedProviders) {
           if (provider.requiresAuth && !provider.isAuthenticated()) {
@@ -956,17 +984,33 @@ async function checkForHallucinations() {
             verifiedVia = provider.name;
             break;
           }
+          if (supportsRateLimitAwareness(provider) && provider.wasLastRequestRateLimited()) {
+            rateLimitedProviders.push(provider.name);
+          }
         }
 
-        results.push({ raw, verifiedVia, skippedProviders });
+        results.push({ raw, verifiedVia, skippedProviders, rateLimitedProviders });
       }
 
       renderHallucinationResults(results);
 
-      const flaggedCount = results.filter((result) => !result.verifiedVia).length;
+      // Rate-limited citations are kept separate from "flagged" -- a request that got throttled
+      // before it could even check isn't evidence of anything, and lumping it in with genuine
+      // non-matches would misleadingly call a real citation a "possible hallucination" just
+      // because a platform's rate limit was hit partway through the document.
+      const rateLimitedCount = results.filter(
+        (result) => !result.verifiedVia && result.rateLimitedProviders.length > 0
+      ).length;
+      const flaggedCount = results.filter(
+        (result) => !result.verifiedVia && result.rateLimitedProviders.length === 0
+      ).length;
+      const rateLimitNote =
+        rateLimitedCount > 0
+          ? ` ${rateLimitedCount} could not be checked because a platform rate-limited the request -- wait a minute and try again.`
+          : "";
       setStatus(
         `Checked ${results.length} citation(s) against ${selectedProviders.length} platform(s); ` +
-          `${flaggedCount} could not be verified on any selected platform.`
+          `${flaggedCount} could not be verified on any selected platform.${rateLimitNote}`
       );
     });
   } catch (error) {
@@ -1004,6 +1048,10 @@ function renderHallucinationResults(results: HallucinationResult[]) {
     if (result.verifiedVia) {
       status.classList.add("issue-ok");
       status.textContent = `Verified via ${result.verifiedVia}.`;
+    } else if (result.rateLimitedProviders.length > 0) {
+      // Deliberately not styled/worded like a flagged hallucination -- a throttled request isn't
+      // evidence of anything, and this citation may well be genuine once re-checked.
+      status.textContent = `Not checked -- rate-limited by ${result.rateLimitedProviders.join(", ")}. Not a confirmed hallucination; wait a minute and try again.`;
     } else {
       status.classList.add("issue-flagged");
       status.textContent =

@@ -60,3 +60,19 @@ export interface CitationProvider {
    */
   lookupCitation(citation: ParsedCitation): Promise<CitationMatch | null>;
 }
+
+/**
+ * Optional capability for providers whose API rate limit is tight enough that hitting it in
+ * normal use is expected, not a rare edge case (e.g. CourtListener's default of 5 requests/
+ * minute). Lets callers distinguish "rate-limited, try again later" from "genuinely not found"
+ * -- conflating the two is misleading (e.g. Find Hallucinations would otherwise report a real,
+ * valid citation as a possible hallucination just because the request got throttled).
+ */
+export interface RateLimitAwareProvider extends CitationProvider {
+  /** Whether the most recent lookupCitation() call returned null specifically because of an HTTP 429, not a genuine miss. */
+  wasLastRequestRateLimited(): boolean;
+}
+
+export function supportsRateLimitAwareness(provider: CitationProvider): provider is RateLimitAwareProvider {
+  return typeof (provider as Partial<RateLimitAwareProvider>).wasLastRequestRateLimited === "function";
+}
