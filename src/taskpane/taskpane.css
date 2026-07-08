@@ -27,6 +27,21 @@ body {
     display: none;
 }
 
+.disclaimer-banner {
+    margin: 0;
+    padding: 8px 10px;
+    background: #fff4e0;
+    border: 1px solid #d9a441;
+    border-radius: 6px;
+    color: #5f4515;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.disclaimer-banner strong {
+    color: #7a3b0a;
+}
+
 .ms-welcome__main > h2 {
     width: 100%;
     text-align: center;
