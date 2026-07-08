@@ -17,6 +17,8 @@ WordClerk is a Word add-in (task pane) for legal citation work: hyperlinking cas
 
 > **Bringing this to IT for approval?** Start with [Security & IT review](#security--it-review) — it has a one-page summary, a data-flow table, a plain-English permissions breakdown, and a centralized-deployment path, written for a security reviewer rather than a developer.
 
+> **Spotted a wrong Bluebook citation rule?** No coding experience needed to fix it — see [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a form you can fill out, or a one-file edit you can make directly on GitHub.com.
+
 ## Features
 
 WordClerk has four tabs, each a self-contained workflow:
@@ -141,6 +143,8 @@ npm run bluebook:update-data
 and commit the diff.
 
 **Reporter-format checking distinguishes two categories** to avoid false positives: a reporter's independently valid *edition* forms (e.g. `"A."`, `"A.2d"`, `"A.3d"` are all correct — different chronological editions of the same series, not errors) versus its known *variations* (malformed spellings like `"A2d"` or `"Atl.2d"`, which are flagged with the specific correct form). An ordinal typo (`"2nd"`/`"3rd"`) is caught generically for every reporter, not just the ones reporters-db happens to have recorded a variation entry for.
+
+**Found a wrong or missing rule?** [`src/taskpane/bluebook/manualCorrections.ts`](src/taskpane/bluebook/manualCorrections.ts) is a small, hand-maintained file — separate from the generated data above, so it's never overwritten by `bluebook:update-data` — where corrections and additions go. See [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a walkthrough that assumes no coding background.
 
 Like the citation lookup providers, Bluebook editions are plugins implementing `BluebookRuleSet` in [src/taskpane/bluebook/types.ts](src/taskpane/bluebook/types.ts) and registering with `bluebookRuleSetRegistry` in [src/taskpane/bluebook/index.ts](src/taskpane/bluebook/index.ts). Pick an edition from the dropdown on the Bluebook Check tab; each is checked independently and adding a new edition (or a firm/journal-specific house style) means implementing the interface and registering an instance.
 

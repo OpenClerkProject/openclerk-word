@@ -1,13 +1,52 @@
 import { ParsedCitation } from "../providers/types";
 import { BluebookIssue } from "./types";
 import { REPORTER_ABBREVIATIONS } from "./generated/reporterAbbreviations.generated";
+import {
+  MANUAL_REPORTER_CORRECTIONS,
+  MANUAL_VALID_REPORTER_FORMS,
+  ManualReporterCorrection,
+  ManualValidReporterForm,
+} from "./manualCorrections";
 
 type ReporterLookup = {
   validForms: Record<string, string>;
   corrections: Record<string, { correctForm: string; name: string }>;
 };
 
-const { validForms, corrections } = REPORTER_ABBREVIATIONS as ReporterLookup;
+/**
+ * Layers community-contributed overrides (manualCorrections.ts) on top of the vendored
+ * reporters-db lookup -- a manual valid-form entry always wins (removes any conflicting
+ * generated "correction"), and a manual correction is skipped if something already accepts
+ * that form as valid. Exported and kept pure so it's unit-testable with fixture data,
+ * independent of the real (normally empty) manual-corrections file.
+ */
+export function applyManualReporterOverrides(
+  generated: ReporterLookup,
+  manualCorrections: ManualReporterCorrection[],
+  manualValidForms: ManualValidReporterForm[]
+): ReporterLookup {
+  const validForms = { ...generated.validForms };
+  const corrections = { ...generated.corrections };
+
+  for (const entry of manualValidForms) {
+    validForms[entry.form] = entry.name;
+    delete corrections[entry.form];
+  }
+  for (const entry of manualCorrections) {
+    if (entry.incorrectForm in validForms) {
+      continue;
+    }
+    corrections[entry.incorrectForm] = { correctForm: entry.correctForm, name: entry.name };
+  }
+
+  return { validForms, corrections };
+}
+
+const { validForms, corrections } = applyManualReporterOverrides(
+  REPORTER_ABBREVIATIONS as ReporterLookup,
+  MANUAL_REPORTER_CORRECTIONS,
+  MANUAL_VALID_REPORTER_FORMS
+);
 
 /**
  * Checks a citation's reporter abbreviation against Free Law Project's reporters-db (Table T1

@@ -4,6 +4,8 @@ import { Bluebook20thEdition } from '../src/taskpane/bluebook/edition20th';
 import { Bluebook21stEdition } from '../src/taskpane/bluebook/edition21st';
 import { Bluebook22ndEdition } from '../src/taskpane/bluebook/edition22nd';
 import { checkCommonCaseCitationRules } from '../src/taskpane/bluebook/commonRules';
+import { applyManualReporterOverrides } from '../src/taskpane/bluebook/reporterRules';
+import { applyManualCaseNameOverrides } from '../src/taskpane/bluebook/checkCaseNameAbbreviations';
 import { ParsedCitation } from '../src/taskpane/providers/types';
 
 const EXAMPLE_CITATION = 'Norfolk & W. Ry. Co. v. Liepelt, 444 U.S. 490 (U.S.Ill., 1980)';
@@ -153,6 +155,48 @@ describe('full case-name abbreviation table (vendored reporters-db data, all edi
     );
     const fullTableFlags = issues.filter((i) => i.ruleId === 'case-name-abbreviation' && i.message.includes('Environment'));
     expect(fullTableFlags.length).toBe(0);
+  });
+});
+
+describe('community-contributed manual corrections (manualCorrections.ts)', () => {
+  test('a manual correction adds a new flagged form on top of the generated data', () => {
+    const { corrections } = applyManualReporterOverrides(
+      { validForms: { 'F. Supp. 2d': 'Federal Supplement' }, corrections: {} },
+      [{ incorrectForm: 'F.Supp.2d', correctForm: 'F. Supp. 2d', name: 'Federal Supplement', source: 'test' }],
+      []
+    );
+    expect(corrections['F.Supp.2d']).toEqual({ correctForm: 'F. Supp. 2d', name: 'Federal Supplement' });
+  });
+
+  test('a manual valid-form entry removes any conflicting generated "correction"', () => {
+    const { validForms, corrections } = applyManualReporterOverrides(
+      { validForms: {}, corrections: { 'N.M.': { correctForm: 'N. M.', name: 'New Mexico Reports' } } },
+      [],
+      [{ form: 'N.M.', name: 'New Mexico Reports', source: 'test' }]
+    );
+    expect(validForms['N.M.']).toBe('New Mexico Reports');
+    expect(corrections['N.M.']).toBeUndefined();
+  });
+
+  test('a manual correction is skipped when the form is already accepted as valid', () => {
+    const { corrections } = applyManualReporterOverrides(
+      { validForms: { 'A.2d': 'Atlantic Reporter, Second Series' }, corrections: {} },
+      [{ incorrectForm: 'A.2d', correctForm: 'A. 2d', name: 'Atlantic Reporter, Second Series', source: 'test' }],
+      []
+    );
+    expect(corrections['A.2d']).toBeUndefined();
+  });
+
+  test('a manual case-name abbreviation is added (and can override a generated one)', () => {
+    const table = applyManualCaseNameOverrides(
+      { corporation: 'Corp.' },
+      [
+        { word: 'Corporation', abbreviation: 'Corp', source: 'test' },
+        { word: 'Institute', abbreviation: "Inst.", source: 'test' },
+      ]
+    );
+    expect(table['corporation']).toBe('Corp');
+    expect(table['institute']).toBe('Inst.');
   });
 });
 

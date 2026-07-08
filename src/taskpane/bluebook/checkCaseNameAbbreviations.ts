@@ -2,8 +2,28 @@ import { ParsedCitation } from "../providers/types";
 import { BluebookIssue } from "./types";
 import { T6_T13_MERGER_ABBREVIATIONS } from "./caseNameAbbreviations";
 import { CASE_NAME_ABBREVIATIONS } from "./generated/caseNameAbbreviations.generated";
+import { MANUAL_CASE_NAME_ABBREVIATIONS, ManualCaseNameAbbreviation } from "./manualCorrections";
 
-const fullAbbreviationTable = CASE_NAME_ABBREVIATIONS as Record<string, string>;
+/**
+ * Layers community-contributed overrides (manualCorrections.ts) on top of the vendored
+ * reporters-db case-name abbreviation table. Exported and kept pure so it's unit-testable with
+ * fixture data, independent of the real (normally empty) manual-corrections file.
+ */
+export function applyManualCaseNameOverrides(
+  generated: Record<string, string>,
+  manualAbbreviations: ManualCaseNameAbbreviation[]
+): Record<string, string> {
+  const table = { ...generated };
+  for (const entry of manualAbbreviations) {
+    table[entry.word.toLowerCase()] = entry.abbreviation;
+  }
+  return table;
+}
+
+const fullAbbreviationTable = applyManualCaseNameOverrides(
+  CASE_NAME_ABBREVIATIONS as Record<string, string>,
+  MANUAL_CASE_NAME_ABBREVIATIONS
+);
 
 /**
  * Flags full words in a case name that Table T6 abbreviates, using Free Law Project's
