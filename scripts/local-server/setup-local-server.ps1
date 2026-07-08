@@ -84,6 +84,7 @@ if (-not (Test-Path $manifestTemplatePath)) {
 $secret = [guid]::NewGuid().ToString('N')
 $appDir = Join-Path $InstallDir 'app'
 $serverScriptDest = Join-Path $InstallDir 'serve-wordclerk.ps1'
+$secretFilePath = Join-Path $InstallDir 'secret.key'
 
 Write-Host "Install dir:  $InstallDir"
 Write-Host "Port:         $Port"
@@ -116,8 +117,25 @@ $manifestContent = $manifestContent.Replace('{{PORT}}', $Port).Replace('{{SECRET
 $manifestOutPath = Join-Path $InstallDir 'manifest.xml'
 Set-Content -Path $manifestOutPath -Value $manifestContent -NoNewline
 
+# Write the secret to its own file instead of passing it as a Scheduled Task argument -- task
+# definitions are readable by any process running as the same user (e.g. `schtasks /query /fo
+# LIST /v` or WMI), which would otherwise leak the secret to anything running under this
+# account. Restrict the file's ACL to the installing user only, stripping inherited/Everyone
+# entries, so even other processes on this account can't casually read it off disk.
+Set-Content -Path $secretFilePath -Value $secret -NoNewline
+$secretAcl = Get-Acl $secretFilePath
+$secretAcl.SetAccessRuleProtection($true, $false)
+foreach ($rule in @($secretAcl.Access)) {
+    $secretAcl.RemoveAccessRule($rule) | Out-Null
+}
+$ownerRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    "$env:USERDOMAIN\$env:USERNAME", 'Read,Write', 'Allow'
+)
+$secretAcl.AddAccessRule($ownerRule)
+Set-Acl -Path $secretFilePath -AclObject $secretAcl
+
 $taskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument `
-    "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$serverScriptDest`" -Port $Port -Secret $secret -ContentRoot `"$appDir`""
+    "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$serverScriptDest`" -Port $Port -SecretFile `"$secretFilePath`" -ContentRoot `"$appDir`""
 $taskTrigger = New-ScheduledTaskTrigger -AtLogOn
 # Task Scheduler kills any task after 72 hours by default (ExecutionTimeLimit) and does not
 # restart it on failure unless told to -- both would silently leave WordClerk's local server

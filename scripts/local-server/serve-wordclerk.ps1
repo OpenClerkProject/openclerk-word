@@ -6,7 +6,10 @@ other interface or port, so nothing on the network (or even other ports on
 this machine) can reach it.
 
 Access control: since loopback sockets aren't restricted to a single
-application on Windows, requests must prove they know $Secret. The first
+application on Windows, requests must prove they know the secret (read from
+-SecretFile at startup, never passed as a command-line argument -- Scheduled
+Task definitions are readable by any process running as the same user via
+`schtasks /query /fo LIST /v`, which would otherwise leak it). The first
 request must include it as a query string (?k=<secret>), which sets an
 HttpOnly session cookie; every subsequent request (including the page's own
 JS/CSS/image fetches) is authorized via that cookie instead. Requests with
@@ -17,7 +20,7 @@ setup-local-server.ps1 (that part needs admin once; this script does not).
 #>
 param(
     [Parameter(Mandatory = $true)][int]$Port,
-    [Parameter(Mandatory = $true)][string]$Secret,
+    [Parameter(Mandatory = $true)][string]$SecretFile,
     [Parameter(Mandatory = $true)][string]$ContentRoot
 )
 
@@ -27,6 +30,11 @@ if (-not (Test-Path $ContentRoot)) {
     Write-Error "Content root not found: $ContentRoot"
     exit 1
 }
+if (-not (Test-Path $SecretFile)) {
+    Write-Error "Secret file not found: $SecretFile"
+    exit 1
+}
+$Secret = (Get-Content $SecretFile -Raw).Trim()
 $ContentRoot = (Resolve-Path $ContentRoot).Path
 $contentRootWithSep = $ContentRoot.TrimEnd('\') + '\'
 $cookieName = 'wc_auth'
