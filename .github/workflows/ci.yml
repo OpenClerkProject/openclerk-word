@@ -28,6 +28,13 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
+      - name: Verify docs page was generated
+        run: |
+          set -e
+          test -s dist/index.html
+          grep -q 'id="security--it-review"' dist/index.html
+          grep -q 'id="development"' dist/index.html
+
       - name: Package add-in
         run: npm run package
 
