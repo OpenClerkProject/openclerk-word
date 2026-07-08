@@ -10,10 +10,17 @@ const repoRawBase = 'https://github.com/wbarnha/WordClerk/';
 // anything that isn't a word character/space/hyphen, then turn spaces into hyphens. This is
 // what makes in-page links like "(#security--it-review)" (already used throughout the README)
 // actually land on the right heading once rendered as one long page.
+//
+// The exhaustive [^\w\- ] whitelist below is what actually makes this safe to drop into an
+// HTML attribute (id="...") -- it strips every character that isn't alphanumeric/underscore/
+// hyphen/space, full stop, so the output can never contain '<', '>', '"', or anything else
+// HTML-meaningful, regardless of what the input looked like. (An earlier version of this
+// function also ran a `.replace(/<[^>]+>/g, '')` tag-stripping pass first -- removed because a
+// single-pass regex tag-stripper is a known-unreliable sanitization idiom on its own, and it
+// added no actual protection here since this whitelist already subsumes it completely.)
 function githubSlug(text) {
   return text
     .toLowerCase()
-    .replace(/<[^>]+>/g, '')
     .replace(/[^\w\- ]/g, '')
     .trim()
     .replace(/ /g, '-');
