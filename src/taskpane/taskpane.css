@@ -147,6 +147,30 @@ button.ms-Button--primary:hover {
     color: #2a2a2a;
 }
 
+.citation-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-word;
+    color: #6f4518;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+}
+
+.citation-link:hover,
+.citation-link:focus {
+    text-decoration-color: currentColor;
+}
+
 .bluebook-issue-row .issue-ok {
     color: #2f6e2f;
 }

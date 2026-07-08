@@ -578,6 +578,32 @@ async function checkBluebookCitations() {
   }
 }
 
+async function goToCitationInDocument(citationText: string) {
+  if (!citationText || citationText.length > MAX_SEARCH_TEXT_LENGTH) {
+    return;
+  }
+
+  try {
+    await Word.run(async (context) => {
+      const results = context.document.body.search(citationText, { matchCase: false, matchWholeWord: false });
+      results.load("items");
+      await context.sync();
+
+      if (results.items.length === 0) {
+        setStatus(`Could not find "${citationText}" in the document.`);
+        return;
+      }
+
+      // Selecting the range moves Word's view to show it -- this is what actually
+      // "jumps to" the citation for the user.
+      results.items[0].select();
+      await context.sync();
+    });
+  } catch (error) {
+    setStatus(`Unable to locate that citation. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function renderBluebookIssues(candidates: string[], ruleSet: BluebookRuleSet) {
   const container = document.getElementById("bluebook-issue-list");
   if (!container) {
@@ -598,8 +624,12 @@ function renderBluebookIssues(candidates: string[], ruleSet: BluebookRuleSet) {
     const row = document.createElement("div");
     row.className = "bluebook-issue-row";
 
-    const label = document.createElement("label");
+    const label = document.createElement("button");
+    label.type = "button";
+    label.className = "citation-link";
+    label.title = "Click to find this citation in the document";
     label.textContent = raw;
+    label.addEventListener("click", () => goToCitationInDocument(raw));
     row.appendChild(label);
 
     const result = document.createElement("p");
