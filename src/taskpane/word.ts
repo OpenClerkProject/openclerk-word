@@ -744,9 +744,9 @@ function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookI
     template: "bluebook-correction.yml",
     title: `[Bluebook correction] Possible false positive: ${issue.ruleId}`,
     "citation-example": citationText,
-    "whats-wrong": `WordClerk flagged this citation with rule "${issue.ruleId}":\n\n${issue.message}\n\nI believe this flag is incorrect because: `,
+    "whats-wrong": `OpenClerk flagged this citation with rule "${issue.ruleId}":\n\n${issue.message}\n\nI believe this flag is incorrect because: `,
   });
-  return `https://github.com/wbarnha/WordClerk/issues/new?${params.toString()}`;
+  return `https://github.com/OpenClerkProject/openclerk-word/issues/new?${params.toString()}`;
 }
 
 async function goToCitationInDocument(citationText: string) {

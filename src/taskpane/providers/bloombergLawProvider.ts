@@ -4,7 +4,7 @@ import { EnterpriseCitationProvider, fetchClientCredentialsToken, trimTrailingSl
 /**
  * Bloomberg Law's API is contract-gated and invite-only: access and the
  * exact token/search paths are provisioned per customer, so there is no
- * single public endpoint WordClerk can ship. This provider implements the
+ * single public endpoint OpenClerk can ship. This provider implements the
  * common OAuth2 client-credentials shape and a configurable base URL;
  * confirm the exact paths in your firm's Bloomberg Law API documentation
  * and adjust TOKEN_PATH/SEARCH_PATH below if they differ.

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve WordClerk's Bluebook citation checker! You don't need to
+        Thanks for helping improve OpenClerk's Bluebook citation checker! You don't need to
         know how to code to fill this out -- just answer the questions below as best you can.
         A maintainer will review your report and make the fix.
 
@@ -37,10 +37,10 @@ body:
   - type: textarea
     id: whats-wrong
     attributes:
-      label: What did WordClerk say, and what should it have said instead?
-      description: Describe the problem in plain language. Include the exact wording WordClerk showed, if you can.
+      label: What did OpenClerk say, and what should it have said instead?
+      description: Describe the problem in plain language. Include the exact wording OpenClerk showed, if you can.
       placeholder: |
-        WordClerk flagged "..." as wrong and suggested "...", but the correct form is actually "...".
+        OpenClerk flagged "..." as wrong and suggested "...", but the correct form is actually "...".
     validations:
       required: true
 

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wbarnha/WordClerk.git"
+    "url": "https://github.com/OpenClerkProject/openclerk-word.git"
   },
   "license": "MIT",
   "config": {
@@ -27,8 +27,8 @@
     "validate": "office-addin-manifest validate manifest.xml",
     "package": "npm run build --if-present && node scripts/package-release.js",
     "package:offline": "node scripts/package-release-offline.js",
-    "install:addin": "node scripts/install-wordclerk.js",
-    "install:addin:dry-run": "node scripts/install-wordclerk.js --dry-run",
+    "install:addin": "node scripts/install-openclerk.js",
+    "install:addin:dry-run": "node scripts/install-openclerk.js --dry-run",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js",
     "bluebook:update-data": "node scripts/generate-bluebook-data.js",

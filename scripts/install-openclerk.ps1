@@ -30,7 +30,7 @@ if (-not (Test-Path $manifestFullPath)) {
     exit 1
 }
 
-$targetManifest = Join-Path $Target 'wordclerk-manifest.xml'
+$targetManifest = Join-Path $Target 'openclerk-manifest.xml'
 
 Write-Host "Source manifest: $manifestFullPath"
 Write-Host "Install target:  $targetManifest"

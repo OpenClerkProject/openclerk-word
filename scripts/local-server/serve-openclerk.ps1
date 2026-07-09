@@ -1,5 +1,5 @@
 <#
-Minimal static-file HTTPS server for the WordClerk offline package.
+Minimal static-file HTTPS server for the OpenClerk offline package.
 
 Serves $ContentRoot on https://127.0.0.1:$Port/ only -- it never binds to any
 other interface or port, so nothing on the network (or even other ports on
@@ -75,7 +75,7 @@ function Test-Authorized($request) {
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("https://127.0.0.1:$Port/")
 $listener.Start()
-Write-Host "WordClerk local server listening on https://127.0.0.1:$Port/ (content root: $ContentRoot)"
+Write-Host "OpenClerk local server listening on https://127.0.0.1:$Port/ (content root: $ContentRoot)"
 
 try {
     while ($listener.IsListening) {

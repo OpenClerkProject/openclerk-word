@@ -1,5 +1,5 @@
 <#
-One-time setup for the WordClerk offline package: binds a self-signed
+One-time setup for the OpenClerk offline package: binds a self-signed
 localhost certificate to a single loopback port, installs the add-in content
 + server script, registers a scheduled task to run the server (hidden) at
 logon, and installs the manifest into Word's WEF folder.
@@ -27,9 +27,9 @@ if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     # -DryRun path is also exercised by CI smoke tests running cross-platform pwsh, so fall
     # back to a harmless path instead of failing to even parse arguments there.
     $InstallDir = if ($env:LOCALAPPDATA) {
-        Join-Path $env:LOCALAPPDATA 'WordClerk\LocalServer'
+        Join-Path $env:LOCALAPPDATA 'OpenClerk\LocalServer'
     } else {
-        Join-Path ([System.IO.Path]::GetTempPath()) 'WordClerk\LocalServer'
+        Join-Path ([System.IO.Path]::GetTempPath()) 'OpenClerk\LocalServer'
     }
 }
 
@@ -40,9 +40,9 @@ function Test-IsAdmin {
 }
 
 function Install-LocalhostCertBinding([int]$Port) {
-    $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.Subject -eq 'CN=WordClerkLocalServer' } | Select-Object -First 1
+    $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.Subject -eq 'CN=OpenClerkLocalServer' } | Select-Object -First 1
     if (-not $cert) {
-        $cert = New-SelfSignedCertificate -DnsName 'localhost' -Subject 'CN=WordClerkLocalServer' `
+        $cert = New-SelfSignedCertificate -DnsName 'localhost' -Subject 'CN=OpenClerkLocalServer' `
             -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(5) -KeyUsage DigitalSignature, KeyEncipherment
     }
 
@@ -83,7 +83,7 @@ if (-not (Test-Path $manifestTemplatePath)) {
 
 $secret = [guid]::NewGuid().ToString('N')
 $appDir = Join-Path $InstallDir 'app'
-$serverScriptDest = Join-Path $InstallDir 'serve-wordclerk.ps1'
+$serverScriptDest = Join-Path $InstallDir 'serve-openclerk.ps1'
 $secretFilePath = Join-Path $InstallDir 'secret.key'
 
 Write-Host "Install dir:  $InstallDir"
@@ -110,7 +110,7 @@ Write-Host 'Certificate bound and trusted for 127.0.0.1.'
 # --- Non-elevated portion: content, manifest, scheduled task ----------------
 New-Item -ItemType Directory -Path $appDir -Force | Out-Null
 Copy-Item -Path (Join-Path $appSourceDir '*') -Destination $appDir -Recurse -Force
-Copy-Item -Path (Join-Path $scriptDir 'serve-wordclerk.ps1') -Destination $serverScriptDest -Force
+Copy-Item -Path (Join-Path $scriptDir 'serve-openclerk.ps1') -Destination $serverScriptDest -Force
 
 $manifestContent = Get-Content $manifestTemplatePath -Raw
 $manifestContent = $manifestContent.Replace('{{PORT}}', $Port).Replace('{{SECRET}}', $secret)
@@ -138,22 +138,22 @@ $taskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument `
     "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$serverScriptDest`" -Port $Port -SecretFile `"$secretFilePath`" -ContentRoot `"$appDir`""
 $taskTrigger = New-ScheduledTaskTrigger -AtLogOn
 # Task Scheduler kills any task after 72 hours by default (ExecutionTimeLimit) and does not
-# restart it on failure unless told to -- both would silently leave WordClerk's local server
+# restart it on failure unless told to -- both would silently leave OpenClerk's local server
 # dead (72h is well within a normal multi-day logged-in session) with no recovery until the
 # next login. RestartCount/-Interval covers crashes; ExecutionTimeLimit Zero means "no limit".
 $taskSettings = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit ([TimeSpan]::Zero) -DontStopOnIdleEnd
-Register-ScheduledTask -TaskName 'WordClerkLocalServer' -Action $taskAction -Trigger $taskTrigger -Settings $taskSettings `
-    -Description 'Serves the WordClerk add-in locally on 127.0.0.1 for offline use.' -Force | Out-Null
+Register-ScheduledTask -TaskName 'OpenClerkLocalServer' -Action $taskAction -Trigger $taskTrigger -Settings $taskSettings `
+    -Description 'Serves the OpenClerk add-in locally on 127.0.0.1 for offline use.' -Force | Out-Null
 
-Stop-ScheduledTask -TaskName 'WordClerkLocalServer' -ErrorAction SilentlyContinue
-Start-ScheduledTask -TaskName 'WordClerkLocalServer'
+Stop-ScheduledTask -TaskName 'OpenClerkLocalServer' -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName 'OpenClerkLocalServer'
 
 $wefTarget = Join-Path $env:LOCALAPPDATA 'Microsoft\Office\16.0\WEF'
 New-Item -ItemType Directory -Path $wefTarget -Force | Out-Null
-Copy-Item -Path $manifestOutPath -Destination (Join-Path $wefTarget 'wordclerk-manifest-local.xml') -Force
+Copy-Item -Path $manifestOutPath -Destination (Join-Path $wefTarget 'openclerk-manifest-local.xml') -Force
 
 Write-Host ''
-Write-Host 'WordClerk local server is set up and running.'
+Write-Host 'OpenClerk local server is set up and running.'
 Write-Host 'It will also start automatically the next time you log in.'
-Write-Host 'Restart Word to see the WordClerk button on the Home ribbon.'
+Write-Host 'Restart Word to see the OpenClerk button on the Home ribbon.'

@@ -4,11 +4,11 @@ import { CitationProvider, CitationMatch, ParsedCitation, ProviderCredentialFiel
  * Base class for providers backed by a paid/contract-gated research API
  * (LexisNexis, Westlaw, Bloomberg Law, or a firm's own internal API).
  *
- * WordClerk never ships a fixed endpoint or a bundled key for these
+ * OpenClerk never ships a fixed endpoint or a bundled key for these
  * platforms: each vendor provisions API access per customer contract, so the
  * base URL and credentials are always supplied by the user at runtime and
  * held in memory only for the current session. Nothing is written to disk,
- * localStorage, or any WordClerk-controlled server.
+ * localStorage, or any OpenClerk-controlled server.
  */
 export abstract class EnterpriseCitationProvider implements CitationProvider {
   abstract readonly id: string;

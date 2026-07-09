@@ -1,19 +1,19 @@
-# WordClerk
+# OpenClerk
 
-[![CI](https://github.com/wbarnha/WordClerk/actions/workflows/ci.yml/badge.svg)](https://github.com/wbarnha/WordClerk/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/releases)
-[![License: MIT](https://img.shields.io/github/license/wbarnha/WordClerk?style=flat-square)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/commits/main)
-[![Open issues](https://img.shields.io/github/issues/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/pulls)
-[![Stars](https://img.shields.io/github/stars/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/stargazers)
+[![CI](https://github.com/OpenClerkProject/openclerk-word/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenClerkProject/openclerk-word/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/releases)
+[![License: MIT](https://img.shields.io/github/license/OpenClerkProject/openclerk-word?style=flat-square)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/commits/main)
+[![Open issues](https://img.shields.io/github/issues/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/issues)
+[![Open PRs](https://img.shields.io/github/issues-pr/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/pulls)
+[![Stars](https://img.shields.io/github/stars/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/stargazers)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white)](tsconfig.json)
 [![Node.js](https://img.shields.io/badge/Node.js-16%2B-339933?style=flat-square&logo=node.js&logoColor=white)](README.md#development)
 [![Code style: Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4?style=flat-square&logo=prettier&logoColor=white)](https://www.npmjs.com/package/office-addin-prettier-config)
 [![Platform: Word Add-in](https://img.shields.io/badge/platform-Word%20Add--in-2B579A?style=flat-square&logo=microsoftword&logoColor=white)](manifest.xml)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/wbarnha/WordClerk/pulls)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/pulls)
 
-WordClerk is a Word add-in (task pane) for legal citation work: hyperlinking case-law and parenthetical citations, looking citations up live against public and enterprise legal databases, and checking citations for Bluebook formatting problems — all from one task pane, and entirely local by default.
+OpenClerk is a Word add-in (task pane) for legal citation work: hyperlinking case-law and parenthetical citations, looking citations up live against public and enterprise legal databases, and checking citations for Bluebook formatting problems — all from one task pane, and entirely local by default.
 
 > **Bringing this to IT for approval?** Start with [Security & IT review](#security--it-review) — it has a one-page summary, a data-flow table, a plain-English permissions breakdown, and a centralized-deployment path, written for a security reviewer rather than a developer.
 
@@ -21,7 +21,7 @@ WordClerk is a Word add-in (task pane) for legal citation work: hyperlinking cas
 
 ## Features
 
-WordClerk has four tabs, each a self-contained workflow:
+OpenClerk has four tabs, each a self-contained workflow:
 
 | Tab | What it does | Network calls? |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ WordClerk has four tabs, each a self-contained workflow:
 | **Bluebook Check** | Scans the document's case citations for common Bluebook mechanical formatting problems (the `"v."` abbreviation, reporter series form, year/court presence, edition-specific case-name abbreviations) across three selectable editions (20th/21st/22nd). Click any flagged citation to jump straight to it in the document. See [Bluebook citation checking](#bluebook-citation-checking-plugin-architecture). | None |
 | **Embed Cited Text** | Finds citations that pinpoint a page beyond the first page of the opinion (a single page, a list of pages, or a page range) and embeds the cited court opinion text for that pincite as a Word comment on the citation — comments are collapsed by default and expand on click. See [Embedding cited opinion text](#embedding-cited-opinion-text). | Opt-in, per-citation only |
 
-A **Report an issue** link sits at the bottom of every tab, pointing straight to this repo's [GitHub Issues](https://github.com/wbarnha/WordClerk/issues).
+A **Report an issue** link sits at the bottom of every tab, pointing straight to this repo's [GitHub Issues](https://github.com/OpenClerkProject/openclerk-word/issues).
 
 Most of WordClerk makes zero network calls, ever. Online Lookup, Find Hallucinations, and Embed Cited Text are the only features that leave the machine, and each one only does so when a user explicitly runs it. See [Security & IT review](#security--it-review) for the full data-flow breakdown.
 
@@ -44,7 +44,7 @@ Prerequisites
 Install dependencies:
 
 ```bash
-cd WordClerk
+cd openclerk-word
 npm install
 ```
 
@@ -81,7 +81,7 @@ The **Online Lookup** tab is an alternative to the file-parsing workflow on the 
 
 > Norfolk & W. Ry. Co. v. Liepelt, 444 U.S. 490 (U.S.Ill., 1980)
 
-the selected provider is asked about that citation; if it immediately resolves to a single case, WordClerk hyperlinks it, otherwise that citation is left untouched and the scan moves on to the next one — no error, no interruption.
+the selected provider is asked about that citation; if it immediately resolves to a single case, OpenClerk hyperlinks it, otherwise that citation is left untouched and the scan moves on to the next one — no error, no interruption.
 
 Providers are plugins implementing `CitationProvider` in [src/taskpane/providers/types.ts](src/taskpane/providers/types.ts) and self-registering with `citationProviderRegistry` in [src/taskpane/providers/index.ts](src/taskpane/providers/index.ts). To add a new one (a firm's internal search API, another public case-law database, etc.), implement the interface and register an instance — nothing else in the add-in needs to change.
 
@@ -89,7 +89,7 @@ Providers are plugins implementing `CitationProvider` in [src/taskpane/providers
 
 Built-in providers:
 - **CourtListener** ([courtListenerProvider.ts](src/taskpane/providers/courtListenerProvider.ts)) — Free Law Project's free case-law search. Requires a free account and API token from [courtlistener.com/profile/api-token](https://www.courtlistener.com/profile/api-token/) — CourtListener's citation-lookup API returns `401` for unauthenticated requests, so there's no working anonymous mode despite what some of their documentation examples show.
-- **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](src/taskpane/providers/lexisNexisProvider.ts), [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts), [bloombergLawProvider.ts](src/taskpane/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so WordClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
+- **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](src/taskpane/providers/lexisNexisProvider.ts), [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts), [bloombergLawProvider.ts](src/taskpane/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so OpenClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
 - **USPTO Patent Center** ([usptoPatentCenterProvider.ts](src/taskpane/providers/usptoPatentCenterProvider.ts)) — **TODO, not implemented.** Registered as a placeholder (shows up in the provider list, always reports "not found" so citations are skipped) so the plugin wiring can be exercised end-to-end before a real Patent Center / PEDS integration is built for the Non-patent Literature workflow.
 
 ### Getting credentials for each provider
@@ -190,7 +190,7 @@ Get a free token from [CourtListener's API documentation](https://www.courtliste
 - **What can leave the machine, opt-in only:** if a user turns on the **Online Lookup** tab, short citation strings (not document content) are sent over HTTPS to whichever single lookup provider that user selects and connects. See the data-flow table below for exactly what's sent where.
 - **Source & license:** fully open source in this repository under the MIT license (see [package.json](package.json)); every claim in this section can be checked directly against [src/taskpane/](src/taskpane/) rather than taken on faith.
 - **Dependencies:** `npm audit --omit=dev` currently reports **0 known vulnerabilities** in production dependencies — i.e., in the code that actually ships inside the add-in bundle loaded into Word. Running a plain `npm audit` (no flags) will additionally show advisories in **devDependencies only** (the local build/debugging toolchain: `webpack-dev-server`, `copy-webpack-plugin`, and Microsoft's own `office-addin-manifest`/Teams Toolkit tooling, none of which are packaged into `dist/`). Those are worth tracking but don't affect the shipped add-in; versions are pinned via `package-lock.json` and CI (`npm ci`) installs the exact locked tree on every build.
-- **Distribution:** no auto-update mechanism reaches out to any WordClerk-controlled service. Installing or upgrading is something your organization does deliberately (see [Centralized deployment](#centralized-deployment-it-managed-rollout) below), not something that happens silently in the background.
+- **Distribution:** no auto-update mechanism reaches out to any OpenClerk-controlled service. Installing or upgrading is something your organization does deliberately (see [Centralized deployment](#centralized-deployment-it-managed-rollout) below), not something that happens silently in the background.
 
 ### Data flow, by feature
 
@@ -212,14 +212,15 @@ The manifest requests exactly one Office permission: `<Permissions>ReadWriteDocu
 ### Credential handling
 
 - Credential inputs are rendered as password-masked fields (`<input type="password">`) for every secret-typed field (API tokens, client secrets) — see `renderProviderPanel` in [word.ts](src/taskpane/word.ts).
-- Credentials are held in memory only, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](src/taskpane/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any WordClerk-controlled server, and are cleared by clicking "Disconnect" or by closing/reloading the task pane.
-- Enterprise provider API base URLs are required to start with `https://` — WordClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](src/taskpane/providers/base.ts)).
+- Credentials are held in memory only, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](src/taskpane/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any OpenClerk-controlled server, and are cleared by clicking "Disconnect" or by closing/reloading the task pane.
+- Enterprise provider API base URLs are required to start with `https://` — OpenClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](src/taskpane/providers/base.ts)).
 - **No telemetry or analytics** are collected by the add-in itself, successful or not.
-- **`manifest.xml`'s `<AppDomains>`** declares every external domain WordClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain at the network/firewall level, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
+- **`manifest.xml`'s `<AppDomains>`** declares every external domain OpenClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain at the network/firewall level, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
+- **⚠️ When enabling an enterprise provider, widen `connect-src` in [taskpane.html](src/taskpane/taskpane.html)'s CSP to your firm's *specific* API domain — never to a wildcard (e.g. `https:`).** The add-in only checks that a typed-in API base URL starts with `https://`; it does not allow-list which HTTPS host it's allowed to be. A wildcarded `connect-src` would let a mistyped or malicious base URL send that provider's OAuth credentials to an unintended host. A domain-specific `connect-src` closes this off at the browser level regardless of what URL a user types in.
 
 ### Centralized deployment (IT-managed rollout)
 
-Rather than each user sideloading the manifest individually (the default developer flow described above), IT can push WordClerk to specific users or groups — and control updates — through the **integrated apps** feature of the Microsoft 365 admin center:
+Rather than each user sideloading the manifest individually (the default developer flow described above), IT can push OpenClerk to specific users or groups — and control updates — through the **integrated apps** feature of the Microsoft 365 admin center:
 
 1. In the [Microsoft 365 admin center](https://admin.microsoft.com), go to **Settings → Integrated apps**, then **Upload custom apps**.
 2. Upload the `manifest.xml` produced by `npm run package` (or a release asset — see [Download and install from GitHub](#download-and-install-from-github) below) and choose which users/groups it's deployed to (`Everyone`, specific users/groups, or just yourself for a pilot).
@@ -230,18 +231,18 @@ See Microsoft's own docs for the full process and requirements: [Deploy add-ins 
 ### Frequently asked (by IT reviewers)
 
 - **Does it ever send a whole document anywhere?** No. The only network calls the add-in ever makes are the per-citation lookups described in the data-flow table above; full document content is never transmitted, by any workflow, under any configuration.
-- **Does it phone home, track usage, or call any WordClerk-controlled service?** No such service exists. There is nothing to phone home to.
+- **Does it phone home, track usage, or call any OpenClerk-controlled service?** No such service exists. There is nothing to phone home to.
 - **What if we don't want *any* outbound network calls at all?** Don't turn on the Online Lookup tab — the Case Law and Non-patent Literature workflows (the add-in's original functionality) are 100% local and unaffected by its presence.
 - **Can we restrict which external domains it's allowed to reach?** Yes, at the network layer (firewall/proxy allow-list) using the domains named in the data-flow table, and/or at the manifest layer via `<AppDomains>`.
-- **Who maintains this and where do we report a security concern?** It's maintained in the open at [github.com/wbarnha/WordClerk](https://github.com/wbarnha/WordClerk); file an issue or PR there, or read the source directly — there's no vendor support line to call.
+- **Who maintains this and where do we report a security concern?** It's maintained in the open at [github.com/OpenClerkProject/openclerk-word](https://github.com/OpenClerkProject/openclerk-word); file an issue or PR there, or read the source directly — there's no vendor support line to call.
 
 ## Compliance considerations
 
-WordClerk itself is a thin, client-side Word add-in with no hosted service of its own, so heavyweight vendor attestations like **SOC 2 Type II** or **ISO/IEC 27001** — which certify how an organization *operates and hosts* a service over time — don't map cleanly onto "review this add-in's code." WordClerk does not hold, and does not claim, either certification. What's actually relevant to a law firm's review is more specific to how it's distributed and what it touches:
+OpenClerk itself is a thin, client-side Word add-in with no hosted service of its own, so heavyweight vendor attestations like **SOC 2 Type II** or **ISO/IEC 27001** — which certify how an organization *operates and hosts* a service over time — don't map cleanly onto "review this add-in's code." OpenClerk does not hold, and does not claim, either certification. What's actually relevant to a law firm's review is more specific to how it's distributed and what it touches:
 
-- If you're evaluating this add-in as a piece of software (rather than as a hosted vendor), Microsoft's [Microsoft 365 App Compliance Program](https://learn.microsoft.com/en-us/microsoft-365-app-certification/overview) is the applicable path for Office Add-ins: **Publisher Attestation** (a self-assessment of security/data-handling practices) or full **Microsoft 365 Certification** (a third-party audit against SOC 2/PCI-DSS/ISO 27001-aligned controls). Neither has been completed for WordClerk; pursue whichever your IT team requires before broad deployment.
+- If you're evaluating this add-in as a piece of software (rather than as a hosted vendor), Microsoft's [Microsoft 365 App Compliance Program](https://learn.microsoft.com/en-us/microsoft-365-app-certification/overview) is the applicable path for Office Add-ins: **Publisher Attestation** (a self-assessment of security/data-handling practices) or full **Microsoft 365 Certification** (a third-party audit against SOC 2/PCI-DSS/ISO 27001-aligned controls). Neither has been completed for OpenClerk; pursue whichever your IT team requires before broad deployment.
 - Firms increasingly vet vendors with standardized questionnaires (e.g., the Shared Assessments **SIG** questionnaire) rather than, or in addition to, certifications — the "Security & IT review" section above is meant to answer those questions directly from the source.
-- Because the LexisNexis/Westlaw/Bloomberg Law integrations are opt-in and use *your firm's own* contracted API credentials, your firm's existing vendor agreements and compliance posture with those three vendors govern that data flow — WordClerk is just the client dialing out to an endpoint you already have a relationship with.
+- Because the LexisNexis/Westlaw/Bloomberg Law integrations are opt-in and use *your firm's own* contracted API credentials, your firm's existing vendor agreements and compliance posture with those three vendors govern that data flow — OpenClerk is just the client dialing out to an endpoint you already have a relationship with.
 
 ## Performance notes
 
@@ -267,54 +268,54 @@ All of the following are **devDependency-only** issues — they live in the loca
 
 ## Download and install from GitHub
 
-WordClerk's add-in content is hosted on **GitHub Pages** (`https://wbarnha.github.io/WordClerk/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
+OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
 
 ### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
-1. Go to the [GitHub Releases page](https://github.com/wbarnha/WordClerk/releases) for this repo.
-2. Download the latest `wordclerk-addin.zip` release asset.
+1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
+2. Download the latest `openclerk-addin.zip` release asset.
 3. Extract the ZIP. It's intentionally small — it contains only:
    - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
-   - `installer/install-wordclerk.ps1` — a standalone PowerShell installer (no Node.js required)
+   - `installer/install-openclerk.ps1` — a standalone PowerShell installer (no Node.js required)
 
    Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
 4. **Windows**: open PowerShell and run the installer:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\install-wordclerk.ps1
+powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
 ```
 
    This copies `manifest.xml` into Word's local add-in manifest folder (`%LOCALAPPDATA%\Microsoft\Office\16.0\WEF`).
 
-5. Restart Word and the **WordClerk** button will appear on the **Home** ribbon.
+5. Restart Word and the **OpenClerk** button will appear on the **Home** ribbon.
 
 > **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installer is pure PowerShell.
 
 ### Verifying a release download
 
-Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/wbarnha/WordClerk/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
 
 **Checksum:**
 ```powershell
-Get-FileHash wordclerk-addin.zip -Algorithm SHA256
+Get-FileHash openclerk-addin.zip -Algorithm SHA256
 # Compare the hash against the matching line in SHA256SUMS
 ```
 
 **Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
 ```bash
-gh attestation verify wordclerk-addin.zip --repo wbarnha/WordClerk
+gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
 ```
 This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
 
 ### Option 2: Install from GitHub Actions workflow artifact
 1. Open the **Actions** tab in this repo.
 2. Select the latest successful **CI** workflow run.
-3. Scroll to the **Artifacts** section and download `wordclerk-addin`.
+3. Scroll to the **Artifacts** section and download `openclerk-addin`.
 4. Extract the downloaded artifact.
-5. Follow the same steps as Option 1 (run `installer\install-wordclerk.ps1`).
+5. Follow the same steps as Option 1 (run `installer\install-openclerk.ps1`).
 
 ### Option 3: Manual sideload via manifest
 If you prefer to sideload the manifest manually in Word Desktop:
-1. Extract `wordclerk-addin.zip` (from a release or CI artifact).
+1. Extract `openclerk-addin.zip` (from a release or CI artifact).
 2. In Word, go to `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
 3. Select the `manifest.xml` from the extracted folder.
 
@@ -328,16 +329,16 @@ npm install
 npm run package
 ```
 
-This creates `wordclerk-addin.zip` at the repo root with the same contents as the release package.
+This creates `openclerk-addin.zip` at the repo root with the same contents as the release package.
 
 ### Option 5: Clone the repository and install locally (development)
 See the [Development](#development) section below for instructions on running the add-in from a local dev server.
 
 ### Option 6: Run fully offline (no internet connection required)
 
-Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need WordClerk to work with no network connection at all, use the offline package instead:
+Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead:
 
-1. Download `wordclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/wbarnha/WordClerk/releases).
+1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
 2. Extract it, then run the setup script:
 
 ```powershell
@@ -350,20 +351,20 @@ powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
 This installs a small local web server that:
 - **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
 - **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
-- **Runs hidden and starts automatically at login** (via a Scheduled Task named `WordClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
+- **Runs hidden and starts automatically at login** (via a Scheduled Task named `OpenClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
 - **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
 
-See `scripts/local-server/serve-wordclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName WordClerkLocalServer`, then remove `%LOCALAPPDATA%\WordClerk\LocalServer`.
+See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName OpenClerkLocalServer`, then remove `%LOCALAPPDATA%\OpenClerk\LocalServer`.
 
 ## Self-hosting
 
-By default, production builds point the manifest at the project's GitHub Pages deployment (`https://wbarnha.github.io/WordClerk/`), so most users don't need to host anything themselves.
+By default, production builds point the manifest at the project's GitHub Pages deployment (`https://openclerkproject.github.io/openclerk-word/`), so most users don't need to host anything themselves.
 
 If you'd rather serve the add-in content from your own infrastructure (an internal HTTPS server, Azure Static Web Apps, S3+CloudFront, etc. — useful for IT-managed rollouts that don't want to depend on GitHub Pages), set `WORDCLERK_HOST_URL` before building or packaging:
 
 ```bash
-WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run build
-WORDCLERK_HOST_URL=https://addins.example.com/wordclerk/ npm run package
+WORDCLERK_HOST_URL=https://addins.example.com/openclerk/ npm run build
+WORDCLERK_HOST_URL=https://addins.example.com/openclerk/ npm run package
 ```
 
 This bakes your URL into both `dist/manifest.xml` and the packaged manifest, so the add-in fetches its taskpane, commands, and icons from your host instead of GitHub Pages. You're responsible for uploading the contents of `dist/` to that URL yourself — this repo's CI only deploys to GitHub Pages.

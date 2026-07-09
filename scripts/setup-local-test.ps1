@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-Write-Host 'Setting up WordClerk local test environment...'
+Write-Host 'Setting up OpenClerk local test environment...'
 
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     Write-Error 'npm is not installed or not available in PATH. Install Node.js and try again.'
@@ -17,7 +17,7 @@ Write-Host 'Packaging the add-in...'
 npm run package
 
 Write-Host 'Local test environment is ready.'
-Write-Host 'Generated package: wordclerk-addin.zip'
+Write-Host 'Generated package: openclerk-addin.zip'
 Write-Host ''
 Write-Host 'Next steps:'
 Write-Host '  1. Run `npm run start` to sideload the manifest into Word Desktop.'

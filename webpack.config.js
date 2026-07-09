@@ -6,9 +6,9 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:3000/";
 // Defaults to the project's GitHub Pages deployment. To self-host instead (e.g. for an
-// internal/IT-managed deployment), set WORDCLERK_HOST_URL to your own HTTPS URL before
+// internal/IT-managed deployment), set OPENCLERK_HOST_URL to your own HTTPS URL before
 // running `npm run build`/`npm run package` -- see README.md > "Self-hosting".
-const urlProd = (process.env.WORDCLERK_HOST_URL || "https://wbarnha.github.io/WordClerk/").replace(/\/*$/, "/");
+const urlProd = (process.env.OPENCLERK_HOST_URL || "https://openclerkproject.github.io/openclerk-word/").replace(/\/*$/, "/");
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();

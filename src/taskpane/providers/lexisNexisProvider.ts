@@ -3,7 +3,7 @@ import { EnterpriseCitationProvider, fetchClientCredentialsToken, trimTrailingSl
 
 /**
  * LexisNexis is a contract-gated enterprise API (e.g. Lexis+ / the Web
- * Services Kit): there is no single public endpoint or key WordClerk can
+ * Services Kit): there is no single public endpoint or key OpenClerk can
  * ship, and the exact token/search paths are assigned per customer. This
  * provider implements the common OAuth2 client-credentials shape and a
  * configurable base URL; confirm the exact paths in your firm's LexisNexis

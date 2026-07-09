@@ -41,13 +41,13 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wordclerk-addin
-          path: wordclerk-addin.zip
+          name: openclerk-addin
+          path: openclerk-addin.zip
 
       - name: Upload dist artifact for GitHub Pages
         uses: actions/upload-artifact@v4
         with:
-          name: wordclerk-dist
+          name: openclerk-dist
           path: dist/
 
   test:
@@ -93,19 +93,19 @@ jobs:
       - name: Verify package contents include installer assets
         run: |
           set -e
-          unzip -l wordclerk-addin.zip | tee package-list.txt
-          grep -q "installer/install-wordclerk.ps1" package-list.txt
+          unzip -l openclerk-addin.zip | tee package-list.txt
+          grep -q "installer/install-openclerk.ps1" package-list.txt
           grep -q "manifest.xml" package-list.txt
           # Verify the JS installer is no longer bundled (end users do not need Node.js)
-          if grep -q "installer/install-wordclerk.js" package-list.txt; then
-            echo "ERROR: install-wordclerk.js must not be in the release package"
+          if grep -q "installer/install-openclerk.js" package-list.txt; then
+            echo "ERROR: install-openclerk.js must not be in the release package"
             exit 1
           fi
 
       - name: Verify production manifest URLs
         run: |
           set -e
-          unzip -p wordclerk-addin.zip manifest.xml > /tmp/release-manifest.xml
+          unzip -p openclerk-addin.zip manifest.xml > /tmp/release-manifest.xml
           if grep -q "localhost" /tmp/release-manifest.xml; then
             echo "ERROR: release manifest still contains localhost URLs"
             cat /tmp/release-manifest.xml
@@ -117,16 +117,16 @@ jobs:
       - name: Installer PowerShell dry-run smoke test
         run: |
           set -e
-          unzip -q wordclerk-addin.zip -d /tmp/wordclerk-release
-          pwsh -NonInteractive -File /tmp/wordclerk-release/installer/install-wordclerk.ps1 -DryRun
+          unzip -q openclerk-addin.zip -d /tmp/openclerk-release
+          pwsh -NonInteractive -File /tmp/openclerk-release/installer/install-openclerk.ps1 -DryRun
 
       - name: Installer PowerShell copy smoke test
         run: |
           set -e
-          pwsh -NonInteractive -File /tmp/wordclerk-release/installer/install-wordclerk.ps1 \
+          pwsh -NonInteractive -File /tmp/openclerk-release/installer/install-openclerk.ps1 \
             -ManifestPath manifest.xml \
-            -Target /tmp/wordclerk-wef
-          test -f /tmp/wordclerk-wef/wordclerk-manifest.xml
+            -Target /tmp/openclerk-wef
+          test -f /tmp/openclerk-wef/openclerk-manifest.xml
 
   offline-smoke:
     name: Offline Package Smoke
@@ -150,9 +150,9 @@ jobs:
       - name: Verify offline package contents
         run: |
           set -e
-          unzip -l wordclerk-addin-offline.zip | tee offline-package-list.txt
+          unzip -l openclerk-addin-offline.zip | tee offline-package-list.txt
           grep -q "installer/setup-local-server.ps1" offline-package-list.txt
-          grep -q "installer/serve-wordclerk.ps1" offline-package-list.txt
+          grep -q "installer/serve-openclerk.ps1" offline-package-list.txt
           grep -q "app/taskpane.html" offline-package-list.txt
           grep -q "app/commands.html" offline-package-list.txt
           grep -q "app/vendor/office.js" offline-package-list.txt
@@ -162,7 +162,7 @@ jobs:
       - name: Verify no CDN references remain (must work with no internet)
         run: |
           set -e
-          unzip -p wordclerk-addin-offline.zip app/taskpane.html app/commands.html > /tmp/offline-html.txt
+          unzip -p openclerk-addin-offline.zip app/taskpane.html app/commands.html > /tmp/offline-html.txt
           if grep -qE "appsforoffice\.microsoft\.com|res-1\.cdn\.office\.net" /tmp/offline-html.txt; then
             echo "ERROR: offline package HTML still references Microsoft's CDN"
             exit 1
@@ -171,7 +171,7 @@ jobs:
       - name: Verify manifest placeholders
         run: |
           set -e
-          unzip -p wordclerk-addin-offline.zip manifest.xml > /tmp/offline-manifest.xml
+          unzip -p openclerk-addin-offline.zip manifest.xml > /tmp/offline-manifest.xml
           grep -q "localhost:{{PORT}}" /tmp/offline-manifest.xml
           grep -q "k={{SECRET}}" /tmp/offline-manifest.xml
           if grep -q "wbarnha.github.io" /tmp/offline-manifest.xml; then
@@ -182,8 +182,8 @@ jobs:
       - name: Setup script dry-run smoke test
         run: |
           set -e
-          unzip -q wordclerk-addin-offline.zip -d /tmp/wordclerk-offline
-          pwsh -NonInteractive -File /tmp/wordclerk-offline/installer/setup-local-server.ps1 -DryRun
+          unzip -q openclerk-addin-offline.zip -d /tmp/openclerk-offline
+          pwsh -NonInteractive -File /tmp/openclerk-offline/installer/setup-local-server.ps1 -DryRun
 
   deploy-pages:
     name: Deploy to GitHub Pages
@@ -200,7 +200,7 @@ jobs:
       - name: Download dist artifact
         uses: actions/download-artifact@v4
         with:
-          name: wordclerk-dist
+          name: openclerk-dist
           path: dist/
 
       - name: Upload Pages artifact
@@ -256,8 +256,8 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./wordclerk-addin.zip
-          asset_name: wordclerk-addin.zip
+          asset_path: ./openclerk-addin.zip
+          asset_name: openclerk-addin.zip
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -269,8 +269,8 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./wordclerk-addin-offline.zip
-          asset_name: wordclerk-addin-offline.zip
+          asset_path: ./openclerk-addin-offline.zip
+          asset_name: openclerk-addin-offline.zip
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -324,7 +324,7 @@ jobs:
           curl -v -X POST \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/zip" \
-            --data-binary @./wordclerk-addin.zip \
+            --data-binary @./openclerk-addin.zip \
             "${{ secrets.PARTNER_CENTER_API_URL }}" -o partner_response.json || true
 
           echo "Partner Center response:"

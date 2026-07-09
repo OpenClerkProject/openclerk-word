@@ -7,7 +7,7 @@ const archiver = require('archiver');
 const repoRoot = path.resolve(__dirname, '..');
 const distDir = path.join(repoRoot, 'dist');
 const manifestPath = path.join(distDir, 'manifest.xml');
-const outputPath = path.join(repoRoot, 'wordclerk-addin-offline.zip');
+const outputPath = path.join(repoRoot, 'openclerk-addin-offline.zip');
 
 // The taskpane/commands HTML load office.js and Fabric's CSS from Microsoft's CDN, which
 // defeats the whole point of an offline package. Vendor local copies at packaging time (this
@@ -87,7 +87,7 @@ function buildWithLocalhostPlaceholders() {
   // {{PORT}}/{{SECRET}} are literal tokens -- webpack's manifest transform does a plain
   // string substitution, so they pass through untouched and get filled in for real by
   // setup-local-server.ps1 at install time (see scripts/local-server/).
-  const env = { ...process.env, WORDCLERK_HOST_URL: 'https://localhost:{{PORT}}/' };
+  const env = { ...process.env, OPENCLERK_HOST_URL: 'https://localhost:{{PORT}}/' };
   const result = spawnSync('npx', ['webpack', '--mode', 'production'], {
     cwd: repoRoot,
     env,
@@ -101,7 +101,7 @@ function buildWithLocalhostPlaceholders() {
 
 function addSecretToUrls(manifestXml) {
   // Append ?k={{SECRET}} to every URL that points at our own localhost placeholder host,
-  // so the local server can authorize requests. See serve-wordclerk.ps1 for the check.
+  // so the local server can authorize requests. See serve-openclerk.ps1 for the check.
   return manifestXml.replace(
     /(https:\/\/localhost:\{\{PORT\}\}\/[^"]*)"/g,
     (match, url) => `${url}?k={{SECRET}}"`
@@ -140,8 +140,8 @@ function createArchive(vendorDir) {
     }
     archive.directory(vendorDir, 'app/vendor');
 
-    archive.file(path.join(repoRoot, 'scripts', 'local-server', 'serve-wordclerk.ps1'), {
-      name: 'installer/serve-wordclerk.ps1',
+    archive.file(path.join(repoRoot, 'scripts', 'local-server', 'serve-openclerk.ps1'), {
+      name: 'installer/serve-openclerk.ps1',
     });
     archive.file(path.join(repoRoot, 'scripts', 'local-server', 'setup-local-server.ps1'), {
       name: 'installer/setup-local-server.ps1',

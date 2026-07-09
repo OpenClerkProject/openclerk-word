@@ -1,7 +1,7 @@
 node_modules
 dist
-wordclerk-addin.zip
-wordclerk-addin-offline.zip
+openclerk-addin.zip
+openclerk-addin-offline.zip
 .offline-vendor-cache
 .vscode/testfile1.docx
 .vscode/testfile2.docx

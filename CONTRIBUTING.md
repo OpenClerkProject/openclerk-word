@@ -1,4 +1,4 @@
-# Contributing to WordClerk
+# Contributing to OpenClerk
 
 This project welcomes corrections and improvements from anyone -- including people who don't
 write code. This guide has a section specifically for that: **fixing or adding a Bluebook
@@ -11,15 +11,15 @@ The **Bluebook Check** feature flags citation-formatting problems -- things like
 abbreviation that isn't quite right, or a word in a case name that should be abbreviated. Most of
 that data comes from [reporters-db](https://github.com/freelawproject/reporters-db), a large,
 well-maintained legal-citation database, but it isn't perfect: it can be missing an abbreviation,
-or WordClerk's rules on top of it can get something wrong. If you notice one of these while using
+or OpenClerk's rules on top of it can get something wrong. If you notice one of these while using
 the add-in, here are two ways to report or fix it. Neither one requires installing anything,
 knowing what Git is, or writing code.
 
 ### Option A: Fill out a form (easiest, recommended for most people)
 
-1. Go to [github.com/wbarnha/WordClerk/issues/new/choose](https://github.com/wbarnha/WordClerk/issues/new/choose).
+1. Go to [github.com/OpenClerkProject/openclerk-word/issues/new/choose](https://github.com/OpenClerkProject/openclerk-word/issues/new/choose).
 2. Pick **"Bluebook citation correction."**
-3. Fill in the form: what citation you were checking, what WordClerk said versus what it should
+3. Fill in the form: what citation you were checking, what OpenClerk said versus what it should
    have said, and a source backing up the correction (a page of the Bluebook, a law library
    citation guide, or similar -- this is a legal tool, so we try to cite our sources rather than
    guess).

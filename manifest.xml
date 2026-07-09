@@ -4,12 +4,12 @@
   <Version>1.0.0.0</Version>
   <ProviderName>Contoso</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="WordClerk"/>
+  <DisplayName DefaultValue="OpenClerk"/>
   <Description DefaultValue="A template to get started."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/logo-filled-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/logo-filled-80.png"/>
-  <SupportUrl DefaultValue="https://github.com/wbarnha/WordClerk/issues"/>
-  <!-- www.courtlistener.com is the only external service WordClerk calls out of the box (free case-law
+  <SupportUrl DefaultValue="https://github.com/OpenClerkProject/openclerk-word/issues"/>
+  <!-- www.courtlistener.com is the only external service OpenClerk calls out of the box (free case-law
        lookup, see src/taskpane/providers/courtListenerProvider.ts). LexisNexis/Westlaw/Bloomberg Law
        lookups are opt-in and use a tenant-specific API base URL the user supplies at runtime (see
        README.md "Plugin architecture" and "Security & IT review" sections); add your firm's specific
@@ -78,7 +78,7 @@
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Get started with your sample add-in!"/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="WordClerk"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="OpenClerk"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Show Task Pane"/>
       </bt:ShortStrings>
       <bt:LongStrings>

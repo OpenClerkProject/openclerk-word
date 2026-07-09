@@ -33,7 +33,7 @@ function installManifest(manifestPath, targetDir, dryRun) {
 
   const resolvedManifest = path.resolve(manifestPath);
   const resolvedTargetDir = path.resolve(targetDir);
-  const targetManifest = path.join(resolvedTargetDir, 'wordclerk-manifest.xml');
+  const targetManifest = path.join(resolvedTargetDir, 'openclerk-manifest.xml');
 
   console.log(`Source manifest: ${resolvedManifest}`);
   console.log(`Install target: ${targetManifest}`);

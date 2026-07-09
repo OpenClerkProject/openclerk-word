@@ -3,7 +3,7 @@ const path = require('path');
 const archiver = require('archiver');
 
 const repoRoot = path.resolve(__dirname, '..');
-const outputPath = path.join(repoRoot, 'wordclerk-addin.zip');
+const outputPath = path.join(repoRoot, 'openclerk-addin.zip');
 // Use the manifest from the production build (URLs already replaced by webpack)
 const manifestPath = path.join(repoRoot, 'dist', 'manifest.xml');
 
@@ -29,8 +29,8 @@ function createArchive() {
     // ci.yml for the copy that actually gets deployed).
     archive.file(manifestPath, { name: 'manifest.xml' });
     // Only the standalone PowerShell installer — no Node.js required by end users
-    archive.file(path.join(repoRoot, 'scripts', 'install-wordclerk.ps1'), {
-      name: 'installer/install-wordclerk.ps1',
+    archive.file(path.join(repoRoot, 'scripts', 'install-openclerk.ps1'), {
+      name: 'installer/install-openclerk.ps1',
     });
     archive.finalize();
   });
