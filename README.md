@@ -1,17 +1,17 @@
 # OpenClerk
 
-[![CI](https://github.com/wbarnha/WordClerk/actions/workflows/ci.yml/badge.svg)](https://github.com/wbarnha/WordClerk/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/releases)
-[![License: MIT](https://img.shields.io/github/license/wbarnha/WordClerk?style=flat-square)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/commits/main)
-[![Open issues](https://img.shields.io/github/issues/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/pulls)
-[![Stars](https://img.shields.io/github/stars/wbarnha/WordClerk?style=flat-square)](https://github.com/wbarnha/WordClerk/stargazers)
+[![CI](https://github.com/OpenClerkProject/openclerk-word/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenClerkProject/openclerk-word/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/releases)
+[![License: MIT](https://img.shields.io/github/license/OpenClerkProject/openclerk-word?style=flat-square)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/commits/main)
+[![Open issues](https://img.shields.io/github/issues/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/issues)
+[![Open PRs](https://img.shields.io/github/issues-pr/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/pulls)
+[![Stars](https://img.shields.io/github/stars/OpenClerkProject/openclerk-word?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/stargazers)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white)](tsconfig.json)
 [![Node.js](https://img.shields.io/badge/Node.js-16%2B-339933?style=flat-square&logo=node.js&logoColor=white)](README.md#development)
 [![Code style: Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4?style=flat-square&logo=prettier&logoColor=white)](https://www.npmjs.com/package/office-addin-prettier-config)
 [![Platform: Word Add-in](https://img.shields.io/badge/platform-Word%20Add--in-2B579A?style=flat-square&logo=microsoftword&logoColor=white)](manifest.xml)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/wbarnha/WordClerk/pulls)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/OpenClerkProject/openclerk-word/pulls)
 
 OpenClerk is a Word add-in (task pane) for legal citation work: hyperlinking case-law and parenthetical citations, looking citations up live against public and enterprise legal databases, and checking citations for Bluebook formatting problems — all from one task pane, and entirely local by default.
 
@@ -30,7 +30,7 @@ OpenClerk has four tabs, each a self-contained workflow:
 | **Online Lookup** | An alternative to Case Law's file-based workflow: queries a citation lookup provider live and hyperlinks only the citations that resolve to exactly one case. Ships with free **CourtListener** support out of the box, plus a plugin architecture for enterprise providers (**LexisNexis**, **Westlaw**, **Bloomberg Law**) using your firm's own contracted credentials. See [Citation hyperlink providers](#citation-hyperlink-providers-plugin-architecture). | Opt-in, per-citation only |
 | **Bluebook Check** | Scans the document's case citations for common Bluebook mechanical formatting problems (the `"v."` abbreviation, reporter series form, year/court presence, edition-specific case-name abbreviations) across three selectable editions (20th/21st/22nd). Click any flagged citation to jump straight to it in the document. See [Bluebook citation checking](#bluebook-citation-checking-plugin-architecture). | None |
 
-A **Report an issue** link sits at the bottom of every tab, pointing straight to this repo's [GitHub Issues](https://github.com/wbarnha/WordClerk/issues).
+A **Report an issue** link sits at the bottom of every tab, pointing straight to this repo's [GitHub Issues](https://github.com/OpenClerkProject/openclerk-word/issues).
 
 Three tabs make zero network calls, ever — Online Lookup is the only feature that leaves the machine, and only when a user explicitly turns it on. See [Security & IT review](#security--it-review) for the full data-flow breakdown.
 
@@ -43,7 +43,7 @@ Prerequisites
 Install dependencies:
 
 ```bash
-cd WordClerk
+cd openclerk-word
 npm install
 ```
 
@@ -205,7 +205,7 @@ See Microsoft's own docs for the full process and requirements: [Deploy add-ins 
 - **Does it phone home, track usage, or call any OpenClerk-controlled service?** No such service exists. There is nothing to phone home to.
 - **What if we don't want *any* outbound network calls at all?** Don't turn on the Online Lookup tab — the Case Law and Non-patent Literature workflows (the add-in's original functionality) are 100% local and unaffected by its presence.
 - **Can we restrict which external domains it's allowed to reach?** Yes, at the network layer (firewall/proxy allow-list) using the domains named in the data-flow table, and/or at the manifest layer via `<AppDomains>`.
-- **Who maintains this and where do we report a security concern?** It's maintained in the open at [github.com/wbarnha/WordClerk](https://github.com/wbarnha/WordClerk); file an issue or PR there, or read the source directly — there's no vendor support line to call.
+- **Who maintains this and where do we report a security concern?** It's maintained in the open at [github.com/OpenClerkProject/openclerk-word](https://github.com/OpenClerkProject/openclerk-word); file an issue or PR there, or read the source directly — there's no vendor support line to call.
 
 ## Compliance considerations
 
@@ -239,10 +239,10 @@ All of the following are **devDependency-only** issues — they live in the loca
 
 ## Download and install from GitHub
 
-OpenClerk's add-in content is hosted on **GitHub Pages** (`https://wbarnha.github.io/WordClerk/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
+OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
 
 ### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
-1. Go to the [GitHub Releases page](https://github.com/wbarnha/WordClerk/releases) for this repo.
+1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
 2. Download the latest `openclerk-addin.zip` release asset.
 3. Extract the ZIP. It's intentionally small — it contains only:
    - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
@@ -263,7 +263,7 @@ powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
 
 ### Verifying a release download
 
-Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/wbarnha/WordClerk/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
 
 **Checksum:**
 ```powershell
@@ -273,7 +273,7 @@ Get-FileHash openclerk-addin.zip -Algorithm SHA256
 
 **Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
 ```bash
-gh attestation verify openclerk-addin.zip --repo wbarnha/WordClerk
+gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
 ```
 This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
 
@@ -309,7 +309,7 @@ See the [Development](#development) section below for instructions on running th
 
 Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead:
 
-1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/wbarnha/WordClerk/releases).
+1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
 2. Extract it, then run the setup script:
 
 ```powershell
@@ -329,7 +329,7 @@ See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-l
 
 ## Self-hosting
 
-By default, production builds point the manifest at the project's GitHub Pages deployment (`https://wbarnha.github.io/WordClerk/`), so most users don't need to host anything themselves.
+By default, production builds point the manifest at the project's GitHub Pages deployment (`https://openclerkproject.github.io/openclerk-word/`), so most users don't need to host anything themselves.
 
 If you'd rather serve the add-in content from your own infrastructure (an internal HTTPS server, Azure Static Web Apps, S3+CloudFront, etc. — useful for IT-managed rollouts that don't want to depend on GitHub Pages), set `WORDCLERK_HOST_URL` before building or packaging:
 

@@ -17,7 +17,7 @@ knowing what Git is, or writing code.
 
 ### Option A: Fill out a form (easiest, recommended for most people)
 
-1. Go to [github.com/wbarnha/WordClerk/issues/new/choose](https://github.com/wbarnha/WordClerk/issues/new/choose).
+1. Go to [github.com/OpenClerkProject/openclerk-word/issues/new/choose](https://github.com/OpenClerkProject/openclerk-word/issues/new/choose).
 2. Pick **"Bluebook citation correction."**
 3. Fill in the form: what citation you were checking, what OpenClerk said versus what it should
    have said, and a source backing up the correction (a page of the Bluebook, a law library

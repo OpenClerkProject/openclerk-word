@@ -8,7 +8,7 @@
   <Description DefaultValue="A template to get started."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/logo-filled-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/logo-filled-80.png"/>
-  <SupportUrl DefaultValue="https://github.com/wbarnha/WordClerk/issues"/>
+  <SupportUrl DefaultValue="https://github.com/OpenClerkProject/openclerk-word/issues"/>
   <!-- www.courtlistener.com is the only external service OpenClerk calls out of the box (free case-law
        lookup, see src/taskpane/providers/courtListenerProvider.ts). LexisNexis/Westlaw/Bloomberg Law
        lookups are opt-in and use a tenant-specific API base URL the user supplies at runtime (see

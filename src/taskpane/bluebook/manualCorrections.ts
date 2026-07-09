@@ -48,7 +48,7 @@ export interface ManualCaseNameAbbreviation {
  *
  * Example:
  * { incorrectForm: "F.Supp.2d", correctForm: "F. Supp. 2d", name: "Federal Supplement",
- *   source: "https://github.com/wbarnha/WordClerk/issues/NN" },
+ *   source: "https://github.com/OpenClerkProject/openclerk-word/issues/NN" },
  */
 export const MANUAL_REPORTER_CORRECTIONS: ManualReporterCorrection[] = [];
 
@@ -57,7 +57,7 @@ export const MANUAL_REPORTER_CORRECTIONS: ManualReporterCorrection[] = [];
  * calls them "unrecognized" (a false positive).
  *
  * Example:
- * { form: "N.M.", name: "New Mexico Reports", source: "https://github.com/wbarnha/WordClerk/issues/NN" },
+ * { form: "N.M.", name: "New Mexico Reports", source: "https://github.com/OpenClerkProject/openclerk-word/issues/NN" },
  */
 export const MANUAL_VALID_REPORTER_FORMS: ManualValidReporterForm[] = [];
 
@@ -65,6 +65,6 @@ export const MANUAL_VALID_REPORTER_FORMS: ManualValidReporterForm[] = [];
  * Table T6 case-name word/abbreviation pairs that are missing or wrong in the vendored data.
  *
  * Example:
- * { word: "Corporation", abbreviation: "Corp.", source: "https://github.com/wbarnha/WordClerk/issues/NN" },
+ * { word: "Corporation", abbreviation: "Corp.", source: "https://github.com/OpenClerkProject/openclerk-word/issues/NN" },
  */
 export const MANUAL_CASE_NAME_ABBREVIATIONS: ManualCaseNameAbbreviation[] = [];
