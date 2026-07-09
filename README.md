@@ -19,6 +19,107 @@ OpenClerk is a Word add-in (task pane) for legal citation work: hyperlinking cas
 
 > **Spotted a wrong Bluebook citation rule?** No coding experience needed to fix it — see [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a form you can fill out, or a one-file edit you can make directly on GitHub.com.
 
+## Download and install from GitHub
+
+OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
+
+### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
+1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
+2. Download the latest `openclerk-addin.zip` release asset.
+3. Extract the ZIP. It's intentionally small — it contains only:
+   - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
+   - `installer/install-openclerk.ps1` — a standalone PowerShell installer for Windows (no Node.js required)
+   - `installer/install-openclerk.sh` — a standalone bash installer for macOS (no Node.js required)
+
+   Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
+4. Run the installer for your platform:
+
+   **Windows** — open PowerShell and run:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
+   ```
+
+   This copies `manifest.xml` into Word's local add-in manifest folder (`%LOCALAPPDATA%\Microsoft\Office\16.0\WEF`).
+
+   **macOS** — open Terminal, `cd` into the extracted folder, and run:
+
+   ```bash
+   ./installer/install-openclerk.sh
+   ```
+
+   This copies `manifest.xml` into Word for Mac's shared sideloading folder (`~/Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef`) — the same folder every Office app on the Mac scans for sideloaded manifests, regardless of which one you use to install it. The script is already marked executable inside the ZIP; if your unzip tool strips that bit, run `chmod +x installer/install-openclerk.sh` first. Pass `--dry-run` to preview the install target without copying anything, or `--target <dir>` to install somewhere else.
+
+5. Restart Word and the **OpenClerk** button will appear on the **Home** ribbon.
+
+> **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installers are pure PowerShell (Windows) and bash (macOS).
+
+### Verifying a release download
+
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+
+**Checksum:**
+```powershell
+Get-FileHash openclerk-addin.zip -Algorithm SHA256
+# Compare the hash against the matching line in SHA256SUMS
+```
+
+**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
+```bash
+gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
+```
+This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
+
+### Option 2: Install from GitHub Actions workflow artifact
+1. Open the **Actions** tab in this repo.
+2. Select the latest successful **CI** workflow run.
+3. Scroll to the **Artifacts** section and download `openclerk-addin`.
+4. Extract the downloaded artifact.
+5. Follow the same steps as Option 1 (run `installer\install-openclerk.ps1` on Windows, or `./installer/install-openclerk.sh` on macOS).
+
+### Option 3: Manual sideload via manifest
+If you prefer to sideload the manifest manually in Word Desktop:
+1. Extract `openclerk-addin.zip` (from a release or CI artifact).
+2. In Word, go to `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
+3. Select the `manifest.xml` from the extracted folder.
+
+The manifest already points to the add-in content hosted on GitHub Pages — no local server needed.
+
+### Option 4: Create a local install package
+If you want to build and package locally (requires Node.js — for contributors only):
+
+```bash
+npm install
+npm run package
+```
+
+This creates `openclerk-addin.zip` at the repo root with the same contents as the release package.
+
+### Option 5: Clone the repository and install locally (development)
+See the [Development](#development) section below for instructions on running the add-in from a local dev server.
+
+### Option 6: Run fully offline (no internet connection required, Windows only)
+
+Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead. **This option is currently Windows-only** — the setup script binds a self-signed HTTPS certificate and registers a scheduled task using Windows-specific APIs (`New-SelfSignedCertificate`, `netsh http`, Task Scheduler) that don't have a macOS equivalent:
+
+1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
+2. Extract it, then run the setup script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
+```
+
+3. Windows will prompt for administrator approval once (UAC) — this is only used to bind a self-signed HTTPS certificate to a single `127.0.0.1` port and is not required again after the first run.
+4. Restart Word.
+
+This installs a small local web server that:
+- **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
+- **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
+- **Runs hidden and starts automatically at login** (via a Scheduled Task named `OpenClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
+- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
+
+See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName OpenClerkLocalServer`, then remove `%LOCALAPPDATA%\OpenClerk\LocalServer`.
+
 ## Features
 
 OpenClerk has four tabs, each a self-contained workflow:
@@ -265,107 +366,6 @@ All of the following are **devDependency-only** issues — they live in the loca
 | `webpack-dev-server` | [GHSA-mx8g-39q3-5c79](https://github.com/advisories/GHSA-mx8g-39q3-5c79) — HMR WebSocket interception via permissive user-configured proxies | Moderate | `5.2.4` (exact pin) | `5.2.6` (exact pin) | Plain patch-level version bump, same `5.x` line, same `node >= 18.12.0` engine requirement — no compatibility risk expected. |
 
 **Why `overrides` instead of upgrading `copy-webpack-plugin`/`webpack-dev-server` to their latest majors?** `npm audit fix --force` offered `copy-webpack-plugin@14.0.0` and (for a full sockjs fix) `webpack-dev-server@6.0.0`, but those require Node ≥20.9.0 and ≥22.15.0 respectively — bumping this project's minimum Node version is a separate decision with its own blast radius (CI config, contributor tooling), not something to bundle silently into a vulnerability fix. The `overrides` field lets us force the two actually-vulnerable leaf packages (`uuid`, `serialize-javascript`) to patched versions everywhere in the tree, which is what actually eliminates the advisories, without forcing major-version churn on `copy-webpack-plugin`/`webpack-dev-server` or raising the Node floor. If a future contributor *does* want to move to `webpack-dev-server@6`/Node 22+, these overrides can simply be deleted at that point since they'd be redundant.
-
-## Download and install from GitHub
-
-OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
-
-### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
-1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
-2. Download the latest `openclerk-addin.zip` release asset.
-3. Extract the ZIP. It's intentionally small — it contains only:
-   - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
-   - `installer/install-openclerk.ps1` — a standalone PowerShell installer for Windows (no Node.js required)
-   - `installer/install-openclerk.sh` — a standalone bash installer for macOS (no Node.js required)
-
-   Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
-4. Run the installer for your platform:
-
-   **Windows** — open PowerShell and run:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
-   ```
-
-   This copies `manifest.xml` into Word's local add-in manifest folder (`%LOCALAPPDATA%\Microsoft\Office\16.0\WEF`).
-
-   **macOS** — open Terminal, `cd` into the extracted folder, and run:
-
-   ```bash
-   ./installer/install-openclerk.sh
-   ```
-
-   This copies `manifest.xml` into Word for Mac's shared sideloading folder (`~/Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef`) — the same folder every Office app on the Mac scans for sideloaded manifests, regardless of which one you use to install it. The script is already marked executable inside the ZIP; if your unzip tool strips that bit, run `chmod +x installer/install-openclerk.sh` first. Pass `--dry-run` to preview the install target without copying anything, or `--target <dir>` to install somewhere else.
-
-5. Restart Word and the **OpenClerk** button will appear on the **Home** ribbon.
-
-> **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installers are pure PowerShell (Windows) and bash (macOS).
-
-### Verifying a release download
-
-Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
-
-**Checksum:**
-```powershell
-Get-FileHash openclerk-addin.zip -Algorithm SHA256
-# Compare the hash against the matching line in SHA256SUMS
-```
-
-**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
-```bash
-gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
-```
-This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
-
-### Option 2: Install from GitHub Actions workflow artifact
-1. Open the **Actions** tab in this repo.
-2. Select the latest successful **CI** workflow run.
-3. Scroll to the **Artifacts** section and download `openclerk-addin`.
-4. Extract the downloaded artifact.
-5. Follow the same steps as Option 1 (run `installer\install-openclerk.ps1` on Windows, or `./installer/install-openclerk.sh` on macOS).
-
-### Option 3: Manual sideload via manifest
-If you prefer to sideload the manifest manually in Word Desktop:
-1. Extract `openclerk-addin.zip` (from a release or CI artifact).
-2. In Word, go to `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
-3. Select the `manifest.xml` from the extracted folder.
-
-The manifest already points to the add-in content hosted on GitHub Pages — no local server needed.
-
-### Option 4: Create a local install package
-If you want to build and package locally (requires Node.js — for contributors only):
-
-```bash
-npm install
-npm run package
-```
-
-This creates `openclerk-addin.zip` at the repo root with the same contents as the release package.
-
-### Option 5: Clone the repository and install locally (development)
-See the [Development](#development) section below for instructions on running the add-in from a local dev server.
-
-### Option 6: Run fully offline (no internet connection required, Windows only)
-
-Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead. **This option is currently Windows-only** — the setup script binds a self-signed HTTPS certificate and registers a scheduled task using Windows-specific APIs (`New-SelfSignedCertificate`, `netsh http`, Task Scheduler) that don't have a macOS equivalent:
-
-1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
-2. Extract it, then run the setup script:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
-```
-
-3. Windows will prompt for administrator approval once (UAC) — this is only used to bind a self-signed HTTPS certificate to a single `127.0.0.1` port and is not required again after the first run.
-4. Restart Word.
-
-This installs a small local web server that:
-- **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
-- **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
-- **Runs hidden and starts automatically at login** (via a Scheduled Task named `OpenClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
-- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
-
-See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName OpenClerkLocalServer`, then remove `%LOCALAPPDATA%\OpenClerk\LocalServer`.
 
 ## Self-hosting
 
