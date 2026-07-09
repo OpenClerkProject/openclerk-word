@@ -188,6 +188,7 @@ The manifest requests exactly one Office permission: `<Permissions>ReadWriteDocu
 - Enterprise provider API base URLs are required to start with `https://` — OpenClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](src/taskpane/providers/base.ts)).
 - **No telemetry or analytics** are collected by the add-in itself, successful or not.
 - **`manifest.xml`'s `<AppDomains>`** declares every external domain OpenClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain at the network/firewall level, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
+- **⚠️ When enabling an enterprise provider, widen `connect-src` in [taskpane.html](src/taskpane/taskpane.html)'s CSP to your firm's *specific* API domain — never to a wildcard (e.g. `https:`).** The add-in only checks that a typed-in API base URL starts with `https://`; it does not allow-list which HTTPS host it's allowed to be. A wildcarded `connect-src` would let a mistyped or malicious base URL send that provider's OAuth credentials to an unintended host. A domain-specific `connect-src` closes this off at the browser level regardless of what URL a user types in.
 
 ### Centralized deployment (IT-managed rollout)
 
