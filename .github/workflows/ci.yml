@@ -319,9 +319,12 @@ jobs:
             echo "$token_response"
             exit 1
           fi
+          # access_token is derived at runtime (not a literal secrets.* reference), so it isn't on
+          # GitHub Actions' auto-mask list -- mask it explicitly so it can never leak into logs.
+          echo "::add-mask::$access_token"
 
           echo "Uploading package to Partner Center API URL"
-          curl -v -X POST \
+          curl -sS -X POST \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/zip" \
             --data-binary @./openclerk-addin.zip \
