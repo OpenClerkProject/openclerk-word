@@ -29,12 +29,13 @@ OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproj
 3. Extract the ZIP. It's intentionally small — it contains only:
    - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
    - `installer/install-openclerk.ps1` — a standalone PowerShell installer for Windows (no Node.js required)
+   - `installer/install-openclerk.cmd` — a double-clickable wrapper around the `.ps1` installer
    - `installer/install-openclerk.sh` — a standalone bash installer for macOS (no Node.js required)
 
    Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
 4. Run the installer for your platform:
 
-   **Windows** — open PowerShell and run:
+   **Windows** — double-click `installer\install-openclerk.cmd` (double-clicking the `.ps1` directly opens it in an editor instead of running it, since that's Windows' default action for `.ps1` files), or run the PowerShell script from a console yourself:
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1

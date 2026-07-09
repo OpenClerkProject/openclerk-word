@@ -95,6 +95,7 @@ jobs:
           set -e
           unzip -l openclerk-addin.zip | tee package-list.txt
           grep -q "installer/install-openclerk.ps1" package-list.txt
+          grep -q "installer/install-openclerk.cmd" package-list.txt
           grep -q "installer/install-openclerk.sh" package-list.txt
           grep -q "manifest.xml" package-list.txt
           # Verify the JS installer is no longer bundled (end users do not need Node.js)
