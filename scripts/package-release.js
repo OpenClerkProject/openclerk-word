@@ -28,9 +28,20 @@ function createArchive() {
     // weight in the end-user package (see the "Upload dist artifact for GitHub Pages" step in
     // ci.yml for the copy that actually gets deployed).
     archive.file(manifestPath, { name: 'manifest.xml' });
-    // Only the standalone PowerShell installer — no Node.js required by end users
+    // Standalone installers only — no Node.js required by end users
     archive.file(path.join(repoRoot, 'scripts', 'install-openclerk.ps1'), {
       name: 'installer/install-openclerk.ps1',
+    });
+    // Double-clickable wrapper around the .ps1 -- Windows opens .ps1 files in an editor by
+    // default rather than running them, which makes the installer look like it does nothing.
+    archive.file(path.join(repoRoot, 'scripts', 'install-openclerk.cmd'), {
+      name: 'installer/install-openclerk.cmd',
+    });
+    // mode: 0o755 preserves the executable bit inside the zip so macOS/Linux unzip tools
+    // don't require a manual `chmod +x` before the script can be run.
+    archive.file(path.join(repoRoot, 'scripts', 'install-openclerk.sh'), {
+      name: 'installer/install-openclerk.sh',
+      mode: 0o755,
     });
     archive.finalize();
   });
