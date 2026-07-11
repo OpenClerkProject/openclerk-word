@@ -153,3 +153,95 @@ snapshot this audit worked from), and inspection of the *deployed*
 `taskpane.html`/`manifest.xml` (e.g. the GitHub Pages-hosted copy) in case
 a firm's local deployment fork has changed the CSP/AppDomains from what's
 in this repo.
+
+---
+
+# Round 2 — 2026-07-11
+
+Delta audit covering the end-user installer / offline-server scripts that
+landed just before round 1 merged (they were only reviewed for merge
+cleanliness in round 1, not audited), plus the two items round 1 deferred
+(`npm audit`, and re-checking the CSP/manifest claims against current
+`main`). No new application code shipped to `main` since round 1 beyond
+those scripts.
+
+## Deferred round-1 items — now done
+
+- **`npm audit` run.** `npm audit --omit=dev` → **0 vulnerabilities**;
+  full tree `npm audit` (incl. dev) → **0 vulnerabilities**. The README's
+  "zero known vulnerabilities in production dependencies" claim checks out
+  against the current locked tree.
+- **CSP / manifest re-verified on current `main`.** `taskpane.html`'s CSP
+  still `default-src 'none'` with `connect-src https://www.courtlistener.com`
+  only; `manifest.xml` still `<Permissions>ReadWriteDocument</Permissions>`
+  with `AppDomains` = `https://www.courtlistener.com` only. Unchanged from
+  round 1.
+
+## Installer / offline-server scripts — audited, no code changes needed
+
+Scope: `scripts/install-openclerk.{sh,cmd,ps1}` (shipped to end users by
+`package-release.js`), `scripts/local-server/{setup-local-server,serve-openclerk}.ps1`
+(shipped by `package-release-offline.js`), and both packaging scripts.
+These run on end-user machines, so they got a close read for command
+injection, unsafe download-execute, path traversal, and credential
+handling. They are notably well-hardened; specific checks:
+
+- **No command injection / no shell string-building.** The bash installer
+  runs under `set -euo pipefail` and quotes every variable expansion; the
+  PowerShell scripts pass arguments as typed parameters (no `Invoke-Expression`,
+  no string-built command lines). No user/download-derived value is ever
+  passed to a shell.
+- **No download-and-execute.** The manifest installers only `cp`/`Copy-Item`
+  a local `manifest.xml` into Word's WEF sideload folder. Nothing is
+  fetched at install time. (The only network fetch in the whole
+  installer/packaging surface is `package-release-offline.js` vendoring
+  Microsoft's `office.js`/Fabric CSS at *packaging* time in CI — see the
+  documented note below.)
+- **Path traversal is correctly guarded** in `serve-openclerk.ps1`: the
+  requested path is resolved with `[Path]::GetFullPath` and required to
+  start with `ContentRoot` **plus a trailing separator**, which also
+  closes the classic sibling-prefix bypass (`/rootEVIL` vs `/root/`), and
+  must resolve to an existing leaf file.
+- **Local server is loopback-only and authenticated.** `serve-openclerk.ps1`
+  binds `https://127.0.0.1:$Port/` only, and gates every request on a
+  per-install GUID secret — supplied once via `?k=` then carried in an
+  `HttpOnly; Secure` cookie. The secret is stored in an ACL-restricted
+  file (inheritance stripped, restricted to the installing user) and
+  passed to the scheduled task via `-SecretFile`, deliberately *not* as a
+  task argument (task definitions are readable by same-user processes).
+  The `.cmd` wrapper's `-ExecutionPolicy Bypass` is scoped to the bundled
+  local `.ps1` only (standard for a double-clickable installer of a
+  first-party script), not a remote payload.
+
+## Documented only (round 2)
+
+### D. Offline setup installs a self-signed cert into the machine Trusted Root store
+`scripts/local-server/setup-local-server.ps1` (`Install-LocalhostCertBinding`)
+creates a self-signed `CN=OpenClerkLocalServer` certificate and adds it to
+`Cert:\LocalMachine\Root` (5-year validity) so the loopback HTTPS server is
+trusted by the browser/webview. This is the standard approach for local
+HTTPS (mkcert and Office's own dev-cert tooling do the same) and is
+**bounded**: the cert's `KeyUsage` is `DigitalSignature, KeyEncipherment`
+only — no `KeyCertSign` — so it is a leaf cert for `localhost`, not a CA
+that can mint trust for other domains, and its private key lives in
+`LocalMachine\My`. Residual risk worth noting for a security reviewer: (a)
+it's only reachable via the **offline** package path (the default GitHub
+Pages install never runs this), and (b) anyone who could extract the
+machine-local private key could impersonate `127.0.0.1:$Port` to this
+user — which already presupposes local access. No change recommended;
+flagged so a deploying firm can decide whether the offline path fits their
+endpoint policy. There is no uninstall script that removes the Root-store
+cert / URL ACL / scheduled task — worth adding for manageability.
+
+### E. Offline packaging vendors Microsoft CDN assets without integrity pinning
+`scripts/package-release-offline.js` fetches `office.js` and Fabric's
+`fabric.min.css` from Microsoft's CDNs at packaging time and bundles them
+into the offline zip, with no Subresource-Integrity hash or checksum. Much
+lower risk than round 1's `reporters-db` finding: it's a first-party
+Microsoft CDN over HTTPS, it runs only in the maintainer's CI/dev
+environment (not on end-user machines), and `office.js` is specifically
+designed to be loaded as the current published build rather than pinned.
+Flagged only so a maintainer producing offline packages is aware the
+bundled copies are whatever the CDN served at build time; pinning
+`fabric.min.css` by version+hash (it already has a version-stamped URL)
+would be a cheap hardening if offline packages are distributed widely.
