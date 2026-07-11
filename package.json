@@ -38,7 +38,7 @@
     "@types/jszip": "^3.4.0",
     "core-js": "^3.36.0",
     "jszip": "^3.10.1",
-    "openclerk-core": "github:OpenClerkProject/openclerk-core#v0.1.0",
+    "openclerk-core": "github:OpenClerkProject/openclerk-core#v0.2.1",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {
