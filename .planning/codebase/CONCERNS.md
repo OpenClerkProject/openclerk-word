@@ -15,6 +15,7 @@
 - Files: `src/taskpane/utils.ts`, `src/taskpane/bluebook/manualCorrections.ts`
 - Impact: Any future security fix landed in `openclerk-core`'s equivalent code will not automatically reach this shipped add-in — it must be manually ported or the repo migrated to depend on `openclerk-core`, and the two implementations can silently drift.
 - Fix approach: Either vendor `openclerk-core` as a real dependency, or establish a process (e.g., a CI diff check) to keep the copies in sync.
+- **Resolved (2026-07-15):** PR #33 merged (`main` merge commit `0f48462`), switching the repo to depend on the published `openclerk-core@0.2.6` npm package instead of vendoring `src/taskpane/utils.ts`/`bluebook/manualCorrections.ts` as independent copies. A fresh post-merge audit of `src/commands/` and `scripts/` confirmed zero remaining logic duplicated from `openclerk-core` and zero residual imports of the deleted local `./providers`/`./bluebook`/`./utils` paths — see `.planning/phases/01-openclerk-core-dependency-cleanup/01-DUPLICATION-AUDIT.md` (CORE-02) for the full evidence trail.
 
 **Generated data files committed and very large:**
 - Issue: `src/taskpane/bluebook/generated/reporterAbbreviations.generated.ts` is 10,352 lines (the single largest file in the repo by a wide margin, ~75% of all `src/` LOC), produced by `scripts/generate-bluebook-data.js` (`npm run bluebook:update-data`).
