@@ -31,7 +31,6 @@
     "install:addin:dry-run": "node scripts/install-openclerk.js --dry-run",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js",
-    "bluebook:update-data": "node scripts/generate-bluebook-data.js",
     "test": "jest",
     "test:live": "jest tests/courtListener.live.test.ts"
   },
@@ -39,6 +38,7 @@
     "@types/jszip": "^3.4.0",
     "core-js": "^3.36.0",
     "jszip": "^3.10.1",
+    "openclerk-core": "^0.2.6",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {

@@ -14,19 +14,21 @@ import {
   extractParentheticalCitations,
   escapeHtml,
   isSafeHyperlinkUrl,
-} from "./utils";
-import {
   citationProviderRegistry,
   parseCaseCitation,
   extractCaseCitations,
   expandPincitePages,
   supportsOpinionText,
   supportsRateLimitAwareness,
+  checkCitationsForHallucinations,
   CitationProvider,
   OpinionTextCapableProvider,
   ParsedCitation,
-} from "./providers";
-import { bluebookRuleSetRegistry, BluebookRuleSet, BluebookIssue } from "./bluebook";
+  HallucinationCheckResult,
+  bluebookRuleSetRegistry,
+  BluebookRuleSet,
+  BluebookIssue,
+} from "openclerk-core";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
@@ -34,12 +36,6 @@ type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check" | "e
 type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
-type HallucinationResult = {
-  raw: string;
-  verifiedVia: string | null;
-  skippedProviders: string[];
-  rateLimitedProviders: string[];
-};
 type BluebookCheckedCitation = { raw: string; parsed: ParsedCitation | null; issues: BluebookIssue[] };
 type EmbedTextResult = { raw: string; embedded: boolean; reason: string | null };
 
@@ -735,9 +731,11 @@ function invalidateBluebookResults() {
 }
 
 /**
- * Deep-links into the "Bluebook citation correction" GitHub Issue Form (see
- * .github/ISSUE_TEMPLATE/bluebook-correction.yml and CONTRIBUTING.md) with the flagged citation
- * and rule already filled in, so reporting a possible false positive doesn't require retyping it.
+ * Deep-links into openclerk-core's "Bluebook citation correction" GitHub Issue Form (see
+ * openclerk-core's .github/ISSUE_TEMPLATE/bluebook-correction.yml and this repo's CONTRIBUTING.md)
+ * with the flagged citation and rule already filled in, so reporting a possible false positive
+ * doesn't require retyping it. Points at openclerk-core, not this repo, because the Bluebook rule
+ * data and rule-checking logic it reports against lives there now.
  */
 function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookIssue): string {
   const params = new URLSearchParams({
@@ -746,7 +744,7 @@ function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookI
     "citation-example": citationText,
     "whats-wrong": `OpenClerk flagged this citation with rule "${issue.ruleId}":\n\n${issue.message}\n\nI believe this flag is incorrect because: `,
   });
-  return `https://github.com/OpenClerkProject/openclerk-word/issues/new?${params.toString()}`;
+  return `https://github.com/OpenClerkProject/openclerk-core/issues/new?${params.toString()}`;
 }
 
 async function goToCitationInDocument(citationText: string) {
@@ -1003,33 +1001,12 @@ async function checkForHallucinations() {
         return;
       }
 
-      const results: HallucinationResult[] = [];
-
       // Looked up one citation, one provider, at a time (not in parallel) to stay within each
-      // platform's rate limits -- same reasoning as the Online Lookup tab.
-      for (const raw of candidates) {
-        const parsed = parseCaseCitation(raw) || { raw };
-        let verifiedVia: string | null = null;
-        const skippedProviders: string[] = [];
-        const rateLimitedProviders: string[] = [];
-
-        for (const provider of selectedProviders) {
-          if (provider.requiresAuth && !provider.isAuthenticated()) {
-            skippedProviders.push(provider.name);
-            continue;
-          }
-          const match = await provider.lookupCitation(parsed);
-          if (match) {
-            verifiedVia = provider.name;
-            break;
-          }
-          if (supportsRateLimitAwareness(provider) && provider.wasLastRequestRateLimited()) {
-            rateLimitedProviders.push(provider.name);
-          }
-        }
-
-        results.push({ raw, verifiedVia, skippedProviders, rateLimitedProviders });
-      }
+      // platform's rate limits -- same reasoning as the Online Lookup tab. Delegates to
+      // openclerk-core's checkCitationsForHallucinations instead of re-deriving this loop here --
+      // that shared implementation is also what verifies a provider's match actually names the
+      // same case (see caseNamesMatch), not just that it resolved some citation locator.
+      const results: HallucinationCheckResult[] = await checkCitationsForHallucinations(candidates, selectedProviders);
 
       renderHallucinationResults(results);
 
@@ -1057,7 +1034,7 @@ async function checkForHallucinations() {
   }
 }
 
-function renderHallucinationResults(results: HallucinationResult[]) {
+function renderHallucinationResults(results: HallucinationCheckResult[]) {
   const container = document.getElementById("hallucination-results-list");
   if (!container) {
     return;
@@ -1087,6 +1064,13 @@ function renderHallucinationResults(results: HallucinationResult[]) {
     if (result.verifiedVia) {
       status.classList.add("issue-ok");
       status.textContent = `Verified via ${result.verifiedVia}.`;
+    } else if (result.nameMismatch) {
+      // A stronger fabrication signal than a plain "not found": the citation's locator
+      // (reporter/volume/page) is real, but it belongs to a different case than the one named
+      // here -- exactly the pattern of a citation with a real-looking citation attached to a
+      // fabricated case name.
+      status.classList.add("issue-flagged");
+      status.textContent = `Possible hallucination -- ${result.nameMismatch.provider} resolves this citation to a different case: "${result.nameMismatch.foundCaseName}".`;
     } else if (result.rateLimitedProviders.length > 0) {
       // Deliberately not styled/worded like a flagged hallucination -- a throttled request isn't
       // evidence of anything, and this citation may well be genuine once re-checked.
