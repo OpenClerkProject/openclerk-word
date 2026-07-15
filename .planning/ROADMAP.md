@@ -36,7 +36,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. PR #33 ("Depend on openclerk-core instead of vendoring its logic") is merged to `main` with CI green.
   2. `npm install` succeeds cleanly against the `openclerk-core` `^0.2.6` npm dependency (no git-tag/`allow-scripts` install failure reproduced).
   3. `src/commands/` and `scripts/` are audited for logic duplicated in `openclerk-core`; any found is removed and replaced with an `openclerk-core` import, or the audit confirms none exists.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Merge PR #33 (human checkpoint) and verify post-merge dependency/build/CI state plus the hallucination-check Core Value guard (CORE-01)
+- [ ] 01-02-PLAN.md — Audit `src/commands/` and `scripts/` for logic duplicated in `openclerk-core`, record findings (CORE-02)
 
 ### Phase 2: Escaping Hardening
 **Goal**: Hyperlink/HTML insertion into the Word document cannot bypass the existing escaping guards, at any current or future Office.js insertion call site.
