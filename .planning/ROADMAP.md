@@ -22,7 +22,7 @@ jurisdiction resolution) is a business decision outside the engineering critical
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: openclerk-core Dependency Cleanup** - Land PR #33 and remove any remaining logic duplicated in openclerk-core
+- [x] **Phase 1: openclerk-core Dependency Cleanup** - Land PR #33 and remove any remaining logic duplicated in openclerk-core (completed 2026-07-15)
 - [ ] **Phase 2: Escaping Hardening** - Make hyperlink/HTML insertion bypass-proof at compile time
 - [ ] **Phase 3: Provider Deduplication** - Collapse Westlaw/LexisNexis/Bloomberg Law into one config-driven provider
 - [ ] **Phase 4: Partner Center Submission Prep** - Fix manifest/listing/legal docs and confirm the CI publish path
@@ -101,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. openclerk-core Dependency Cleanup | 2/2 | In Progress|  |
+| 1. openclerk-core Dependency Cleanup | 2/2 | Complete    | 2026-07-15 |
 | 2. Escaping Hardening | 0/TBD | Not started | - |
 | 3. Provider Deduplication | 0/TBD | Not started | - |
 | 4. Partner Center Submission Prep | 0/TBD | Not started | - |
