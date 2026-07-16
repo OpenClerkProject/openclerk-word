@@ -33,24 +33,23 @@ const BROWSER_GLOBALS = {
 
 // All three selectors intentionally live in ONE rule-array entry, not split across separate config
 // objects -- flat config's no-restricted-syntax does not merge across matching entries (eslint/eslint#19239).
-const RAW_INSERTION_SELECTORS = [
-  {
-    selector: "CallExpression[callee.property.name='insertHtml']",
-    message: "Raw insertHtml calls must go through src/taskpane/safeInsertion.ts.",
-  },
-  {
-    selector: "CallExpression[callee.property.name='insertHyperlink']",
-    message: "Raw insertHyperlink calls must go through src/taskpane/safeInsertion.ts.",
-  },
-  {
-    selector: "CallExpression[callee.property.name='insertComment']",
-    message: "Raw insertComment calls must go through src/taskpane/safeInsertion.ts.",
-  },
-  {
-    selector: "CallExpression[callee.property.name='insertOoxml']",
-    message: "Raw insertOoxml calls must go through src/taskpane/safeInsertion.ts.",
-  },
-];
+// Each sink is guarded in two AST forms: the direct member call `x.insertHtml(...)`
+// (callee.property.name, an Identifier) and the computed form `x["insertHtml"](...)`
+// (callee.property.value, a string Literal). Without the computed selector, `x["insertHtml"](raw)`
+// slips past the guard while doing exactly what the guard exists to forbid. Residual gap: a call
+// routed through an alias (`const f = x.insertHtml.bind(x); f(...)`), `x.insertHtml.apply/call(...)`,
+// or a dynamically-built method name is not statically matchable by a syntax selector -- the
+// branded SafeHyperlinkUrl parameter on insertSafeHyperlink is the compile-time backstop for the
+// url, and code review covers the rest. This lint is defense-in-depth, not a hard sandbox.
+const RAW_INSERTION_SINKS = ["insertHtml", "insertHyperlink", "insertComment", "insertOoxml"];
+
+const RAW_INSERTION_SELECTORS = RAW_INSERTION_SINKS.flatMap((name) => {
+  const message = `Raw ${name} calls must go through src/taskpane/safeInsertion.ts.`;
+  return [
+    { selector: `CallExpression[callee.property.name='${name}']`, message },
+    { selector: `CallExpression[callee.property.value='${name}']`, message },
+  ];
+});
 
 export default [
   ...officeAddins.configs.recommended,

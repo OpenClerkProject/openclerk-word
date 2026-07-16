@@ -8,38 +8,44 @@
 /* global Word */
 
 import { escapeHtml } from "openclerk-core";
-import type { SafeHtml, SafeHyperlinkUrl } from "openclerk-core";
+import type { SafeHyperlinkUrl } from "openclerk-core";
 
 /**
  * This file is the only place in openclerk-word allowed to call a raw Office.js insertion API
  * (insertHtml/insertHyperlink/insertComment/insertOoxml) -- enforced by this repo's ESLint
- * no-restricted-syntax guard (a later plan in this phase). insertSafeHyperlink/insertSafeComment
- * take only the branded SafeHyperlinkUrl/SafeHtml types, never a plain string, so the guarantee
- * that only already-validated/escaped content reaches Office.js is compiler-enforced for those two
- * sinks, not just convention: a caller cannot pass an unvalidated string in even if the ESLint rule
- * were somehow bypassed. insertSafeOoxml's ooxml parameter is intentionally plain string (see its
- * own doc comment) since its only current caller re-inserts document-derived, not untrusted, OOXML.
+ * no-restricted-syntax guard (a later plan in this phase). insertSafeHyperlink takes the branded
+ * SafeHyperlinkUrl for its url (scheme safety is compiler-enforced -- a caller cannot pass an
+ * unvalidated URL in even if the ESLint rule were bypassed). Its displayText is a plain string that
+ * this wrapper escapes at the point of use: the insertHtml branch HTML-escapes it, while the
+ * insertHyperlink/insertText branches are plain-text sinks that must receive it raw -- feeding them
+ * pre-escaped HTML would render literal &amp;/&#39; entities to the user (the same plain-text-sink
+ * corruption documented on insertSafeComment below). Escaping at the sink, not at the call site,
+ * keeps each of the three branches correct for its own context. insertSafeOoxml's ooxml parameter is
+ * intentionally plain string (see its own doc comment) since its only current caller re-inserts
+ * document-derived, not untrusted, OOXML.
  */
 export async function insertSafeHyperlink(
   context: Word.RequestContext,
   item: Word.Range,
   url: SafeHyperlinkUrl,
-  displayText: SafeHtml
+  displayText: string
 ): Promise<void> {
   if (typeof (item as any).insertHyperlink === "function") {
     // insertHyperlink is a newer/preview Office.js API with no declaration in the installed
     // @types/office-js version -- this cast bridges that gap and is pre-existing, not new risk
-    // introduced by this refactor (RESEARCH.md Pitfall 2).
+    // introduced by this refactor (RESEARCH.md Pitfall 2). This is a plain-text sink, so
+    // displayText is passed raw -- HTML-escaping it here would surface literal entities.
     (item as any).insertHyperlink(url, displayText, Word.InsertLocation.replace);
   } else if (typeof (item as any).insertHtml === "function") {
-    // displayText is already branded (HTML-escaped) by construction. url is only branded for
-    // scheme safety (SafeHyperlinkUrl certifies http/https/mailto, nothing about the
-    // HTML-attribute context it's spliced into here) -- escapeHtml is required on this specific
-    // sink so a "><... payload embedded in the URL can't break out of the href attribute.
-    const html = `<a href="${escapeHtml(url)}">${displayText}</a>`;
+    // Both interpolations are escaped for THIS HTML sink. url is only branded for scheme safety
+    // (SafeHyperlinkUrl certifies http/https/mailto, nothing about the HTML-attribute context it's
+    // spliced into here), so escapeHtml on it stops a "><... payload in the URL breaking out of the
+    // href attribute. displayText arrives raw (see header) and is HTML-escaped here so it can't
+    // inject markup into the anchor's text content.
+    const html = `<a href="${escapeHtml(url)}">${escapeHtml(displayText)}</a>`;
     (item as any).insertHtml(html, Word.InsertLocation.replace);
   } else {
-    // Last-resort: replace with plain text (no hyperlink)
+    // Last-resort: replace with plain text (no hyperlink). Plain-text sink -- displayText raw.
     item.insertText(displayText, Word.InsertLocation.replace);
   }
   await context.sync();

@@ -81,6 +81,53 @@ describe("insertSafeHyperlink dispatch", () => {
     expect(insertText).toHaveBeenCalledTimes(1);
     expect(context.sync).toHaveBeenCalledTimes(1);
   });
+
+  // Regression tests for audit finding #1: insertSafeHyperlink now owns escaping, taking a plain
+  // string displayText. The insertHyperlink and insertText branches are plain-text sinks, so they
+  // must receive displayText raw -- feeding them pre-escaped HTML would render literal &amp;/&#39;
+  // entities to the user (e.g. "Smith & Jones v. O'Brien" -> "Smith &amp; Jones v. O&#39;Brien").
+  // Only the insertHtml branch escapes, and it must escape the raw displayText itself.
+  const displayWithSpecials = `Smith & Jones v. O'Brien`;
+
+  test("passes displayText raw to the plain-text insertText fallback (no HTML entities)", async () => {
+    const insertText = jest.fn();
+    const item = { insertText };
+    const context = { sync: jest.fn().mockResolvedValue(undefined) };
+
+    await insertSafeHyperlink(context as any, item as any, url, displayWithSpecials);
+
+    const [storedText] = insertText.mock.calls[0];
+    expect(storedText).toBe(displayWithSpecials);
+    expect(storedText).toContain("&");
+    expect(storedText).not.toContain("&amp;");
+    expect(storedText).not.toContain("&#39;");
+  });
+
+  test("passes displayText raw to the plain-text insertHyperlink branch (no HTML entities)", async () => {
+    const insertHyperlink = jest.fn();
+    const item = { insertHyperlink };
+    const context = { sync: jest.fn().mockResolvedValue(undefined) };
+
+    await insertSafeHyperlink(context as any, item as any, url, displayWithSpecials);
+
+    const [, storedText] = insertHyperlink.mock.calls[0];
+    expect(storedText).toBe(displayWithSpecials);
+    expect(storedText).not.toContain("&amp;");
+    expect(storedText).not.toContain("&#39;");
+  });
+
+  test("HTML-escapes the raw displayText for the insertHtml sink", async () => {
+    const insertHtml = jest.fn();
+    const item = { insertHtml };
+    const context = { sync: jest.fn().mockResolvedValue(undefined) };
+
+    await insertSafeHyperlink(context as any, item as any, url, displayWithSpecials);
+
+    const [html] = insertHtml.mock.calls[0];
+    expect(html).toBe(
+      `<a href="https://example.com">Smith &amp; Jones v. O&#39;Brien</a>`
+    );
+  });
 });
 
 describe("insertSafeComment", () => {

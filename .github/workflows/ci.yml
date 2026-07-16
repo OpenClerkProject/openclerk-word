@@ -8,6 +8,12 @@ on:
   release:
     types: [published]
 
+# Least-privilege default for GITHUB_TOKEN across all jobs. The build/test/lint/typecheck/
+# installer/offline jobs only need to read the repo; the deploy-pages and publish jobs override
+# this with the wider scopes they actually need (pages/id-token, contents:write/attestations).
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build

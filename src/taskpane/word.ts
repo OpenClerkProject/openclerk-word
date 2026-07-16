@@ -12,7 +12,6 @@ import {
   normalizeText,
   isLikelyCaseCitation,
   extractParentheticalCitations,
-  toSafeHtml,
   toSafeHyperlinkUrl,
   citationProviderRegistry,
   parseCaseCitation,
@@ -310,7 +309,7 @@ async function applyCaseLawHyperlinksFromSource() {
           continue;
         }
         const normalizedText = normalizeText(item.text || "");
-        await insertSafeHyperlink(context, item, url, toSafeHtml(normalizedText));
+        await insertSafeHyperlink(context, item, url, normalizedText);
         appliedCount += 1;
       }
 
@@ -407,7 +406,7 @@ async function addParentheticalHyperlinks() {
         if (item.hyperlinks.items.length > 0) {
           continue;
         }
-        await insertSafeHyperlink(context, item, entry.url, toSafeHtml(entry.citation));
+        await insertSafeHyperlink(context, item, entry.url, entry.citation);
         addedCount += 1;
       }
 
@@ -617,7 +616,7 @@ async function applyHyperlinksViaProvider() {
         }
 
         for (const item of unlinkedItems) {
-          await insertSafeHyperlink(context, item, safeUrl, toSafeHtml(raw));
+          await insertSafeHyperlink(context, item, safeUrl, raw);
         }
 
         linkedCount += 1;
