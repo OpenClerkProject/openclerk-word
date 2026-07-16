@@ -459,17 +459,19 @@ describe("insertSafeHyperlink dispatch", () => {
 
 **All other claims in this research are `[VERIFIED]`** — either confirmed by direct file reads of installed tooling (`office-addin-lint`, `@types/office-js`, both repos' `tsconfig.json`/`package.json`), direct `npm view`/`git tag`/`git status` registry checks, or ESLint's own official documentation (fetched directly) plus a closed, resolved GitHub issue confirming flat-config override behavior.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact minor/patch version number for the `openclerk-core` release**
    - What we know: Must be above `0.2.7` (currently published); `0.3.0` is the semver-conventional choice for new public exports.
    - What's unclear: Whether the repo owner has any other pending `openclerk-core` work queued that should land in the same release (would affect whether this is a clean single-purpose release or bundled with other changes).
    - Recommendation: Default to `0.3.0`, single-purpose release (branded types + smart constructors only); confirm with repo owner at the D-03 human checkpoint before the publish is actually triggered.
+   - **RESOLVED:** Plan 02-01 targets `0.3.0`, single-purpose release, per the recommendation above.
 
 2. **Whether `safeInsertion.ts`'s wrapper functions accept `context: Word.RequestContext` and call `context.sync()` internally, or leave sync to the caller**
    - What we know: Today's two call sites use different patterns — `applyHyperlinkToItem` takes `context` and syncs internally (`word.ts:232`); the `insertComment` call site syncs in the surrounding `Word.run` block *after* the insert (`word.ts:1233`), not inside a dedicated function.
    - What's unclear: Which pattern the planner should standardize on for both wrapper functions.
    - Recommendation: This is explicitly listed as Claude's Discretion in CONTEXT.md. Research suggests taking `context` and syncing internally for both (matching `applyHyperlinkToItem`'s existing pattern) is slightly safer for the ESLint-enforcement goal of this phase — it keeps `context.sync()` calls colocated with the insertion they follow, reducing the chance a future caller forgets to sync — but either choice satisfies ESCAPE-02/03 equally; this is a design-consistency call, not a correctness one.
+   - **RESOLVED:** Plan 02-02 standardizes both wrapper functions on taking `context: Word.RequestContext` and calling `context.sync()` internally, matching the recommendation.
 
 ## Environment Availability
 
