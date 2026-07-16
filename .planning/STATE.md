@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: escaping-hardening
 status: executing
-stopped_at: Completed 02-02-PLAN.md (safeInsertion.ts wrapper module + dedicated tests created; openclerk-core bumped to 0.3.0)
-last_updated: "2026-07-16T03:16:53.493Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-07-16T03:24:10.550Z"
 last_activity: 2026-07-16
 last_activity_desc: Plan 02-01 Tasks 1-3 committed in openclerk-core; Task 4 checkpoint returned
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 ## Current Position
 
 Phase: 02 (escaping-hardening) — EXECUTING
-Plan: 3 of 4 (Tasks 1-3 complete; Task 4 blocked on human publish action, D-03)
+Plan: 4 of 4 (Tasks 1-3 complete; Task 4 blocked on human publish action, D-03)
 Status: Blocked at checkpoint — awaiting human confirmation of openclerk-core@0.3.0 publish
 Last activity: 2026-07-16 — Plan 02-01 Tasks 1-3 committed in openclerk-core; Task 4 checkpoint returned
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [███████░░░] 67%
 | Phase 01 P02 | 20min | 3 tasks | 2 files |
 | Phase 02 P01 | 7min (Tasks 1-3) + human publish action | 4 tasks | 5 files |
 | Phase 02 P02 | 18min | 3 tasks | 5 files |
+| Phase 02 P03 | 20min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 02 Plan 01]: openclerk-core@0.3.0 published via PR #18 merge (feat/escape-01-branded-types -> main) + human tag push v0.3.0; publish.yml run 29467821795 succeeded; npm view confirms 0.3.0 resolvable from public registry. PR path used instead of direct push since local main had diverged from origin/main via historical rebase-merges.
 - [Phase ?]: Phase 02 Plan 02: Standardized both insertSafeHyperlink and insertSafeComment on the wrapper-takes-context-and-syncs-internally calling convention, resolving RESEARCH.md's Open Question 2 (the two-pattern inconsistency between word.ts's hyperlink dispatch and its insertComment call site).
 - [Phase ?]: Phase 02 Plan 02: Rule 3 auto-fix -- stubbed the Word.InsertLocation global in tests/safeInsertion.test.ts since Office.js's Word global has no presence under Jest's node testEnvironment; needed for the ported dispatch logic to execute under test.
+- [Phase ?]: Phase 02 Plan 03: word.ts's three hyperlink-insertion workflows and its comment-insertion/parseSourceDocument call sites all migrated onto safeInsertion.ts's insertSafeHyperlink/insertSafeComment and openclerk-core's toSafeHyperlinkUrl/toSafeHtml smart constructors; applyHyperlinkToItem deleted; word.ts now contains zero raw Office.js insertion calls and zero references to the old unbranded escapeHtml/isSafeHyperlinkUrl.
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-16T03:16:53.449Z
-Stopped at: Completed 02-02-PLAN.md (safeInsertion.ts wrapper module + dedicated tests created; openclerk-core bumped to 0.3.0)
+Last session: 2026-07-16T03:24:10.513Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None
