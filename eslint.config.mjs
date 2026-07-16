@@ -58,10 +58,11 @@ export default [
     },
   },
   {
-    // Exact scoped glob -- matches only src/taskpane/safeInsertion.ts, the sole file allowed to
-    // call the raw Office.js insertion APIs. A broader directory glob here would silently defeat
-    // the guard for every other file under src/taskpane/.
-    files: ["**/safeInsertion.ts"],
+    // Path-anchored (not basename-only) glob -- matches only src/taskpane/safeInsertion.ts, the
+    // sole file allowed to call the raw Office.js insertion APIs. A "**/safeInsertion.ts" glob
+    // would match any same-named file at any depth under src/, silently disabling the guard
+    // there too if a future contributor ever added one.
+    files: ["src/taskpane/safeInsertion.ts"],
     rules: {
       "no-restricted-syntax": "off",
     },
