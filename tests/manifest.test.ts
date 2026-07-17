@@ -27,32 +27,32 @@ describe('Office add-in manifest', () => {
     expect(extensionPointTypes).toContain('PrimaryCommandSurface');
   });
 
-  test('declares required requirement sets for Word and commands', () => {
+  test('gates on the WordApi requirement set', () => {
+    // The manifest declares a top-level Requirements block so the add-in only loads on hosts that
+    // can run every advertised feature. It intentionally requires ONLY WordApi -- not AddInCommands
+    // (gating on it would block hosts that support task panes but not ribbon commands, which degrade
+    // gracefully) and not WordApiOnline/desktop-only sets (the code deliberately avoids those for
+    // cross-platform reach; see the getComments-over-document.comments note in word.ts).
     const requirements = manifest.OfficeApp.Requirements;
-    // Requirements are optional in task pane manifests; assert only when present.
-    if (!requirements) {
-      expect(requirements).toBeUndefined();
-      return;
-    }
+    expect(requirements).toBeDefined();
 
     const sets = requirements.Sets.Set;
     const names = Array.isArray(sets) ? sets.map((set: any) => set.$.Name) : [sets.$.Name];
 
     expect(names).toContain('WordApi');
-    expect(names).toContain('WordApiOnline');
-    expect(names).toContain('AddInCommands');
-    expect(names).toContain('TaskpaneApi');
   });
 
-  test('requires WordApi 1.9 or greater', () => {
-    if (!manifest.OfficeApp.Requirements) {
-      expect(manifest.OfficeApp.Requirements).toBeUndefined();
-      return;
-    }
+  test('requires WordApi 1.4 -- the floor set by the comments API (Embed Cited Text)', () => {
+    // 1.4 is the highest requirement-set version any used API needs: Range.insertComment /
+    // Body.getComments are WordApi 1.4; everything else (search, insertHtml/insertText/insertOoxml,
+    // Range.hyperlinks) is <= 1.4. Raising this would drop perpetual/volume-licensed Word (2019/
+    // 2021/LTSC) for no functional gain, since no 1.5+ API is used.
+    const requirements = manifest.OfficeApp.Requirements;
+    expect(requirements).toBeDefined();
 
-    const sets = manifest.OfficeApp.Requirements.Sets.Set;
+    const sets = requirements.Sets.Set;
     const wordApi = Array.isArray(sets) ? sets.find((set: any) => set.$.Name === 'WordApi') : sets;
     expect(wordApi).toBeDefined();
-    expect(wordApi.$.MinVersion).toBe('1.9');
+    expect(wordApi.$.MinVersion).toBe('1.4');
   });
 });

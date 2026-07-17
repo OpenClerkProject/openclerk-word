@@ -2,9 +2,26 @@ const fs = require('fs');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const readmePath = path.join(repoRoot, 'README.md');
-const outputPath = path.join(repoRoot, 'dist', 'index.html');
+const distDir = path.join(repoRoot, 'dist');
 const repoRawBase = 'https://github.com/OpenClerkProject/openclerk-word/';
+
+// The Markdown docs that are ALSO published as their own page on this site. A relative link to one
+// of these (e.g. PRIVACY.md linking to TERMS.md, or to README.md#some-anchor) is rewritten to the
+// sibling HTML page rather than off to GitHub, so the Privacy Policy / Terms of Use pages read as a
+// self-contained site -- which is what Partner Center expects a Privacy/Terms URL to be. Every other
+// relative link (source files, LICENSE) still points back to GitHub; see rewriteRelativeLinks.
+const DOC_PAGES = {
+  'README.md': 'index.html',
+  'PRIVACY.md': 'privacy.html',
+  'TERMS.md': 'terms.html',
+};
+
+// The set of pages to generate: source Markdown -> output file + <title>.
+const PAGES = [
+  { src: 'README.md', out: 'index.html', title: 'OpenClerk' },
+  { src: 'PRIVACY.md', out: 'privacy.html', title: 'OpenClerk Privacy Policy' },
+  { src: 'TERMS.md', out: 'terms.html', title: 'OpenClerk Terms of Use' },
+];
 
 // Matches GitHub's own heading-slug algorithm closely enough for this file: lowercase, strip
 // anything that isn't a word character/space/hyphen, then turn spaces into hyphens. This is
@@ -45,18 +62,26 @@ function rewriteRelativeLinks(html) {
     if (/^([a-z][a-z0-9+.-]*:|#)/i.test(href)) {
       return match;
     }
+    // A link to a sibling published page (README/PRIVACY/TERMS, possibly with a #anchor) stays on
+    // this site so the Privacy/Terms pages don't bounce a reviewer out to GitHub mid-document.
+    const hashIndex = href.indexOf('#');
+    const pathPart = hashIndex === -1 ? href : href.slice(0, hashIndex);
+    const anchor = hashIndex === -1 ? '' : href.slice(hashIndex);
+    if (Object.prototype.hasOwnProperty.call(DOC_PAGES, pathPart)) {
+      return `href="${DOC_PAGES[pathPart]}${anchor}"`;
+    }
     const kind = href.endsWith('/') ? 'tree' : 'blob';
     return `href="${repoRawBase}${kind}/main/${href}"`;
   });
 }
 
-function renderPage(bodyHtml) {
+function renderPage(bodyHtml, title) {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>OpenClerk</title>
+<title>${title}</title>
 <style>
   :root {
     color-scheme: light;
@@ -160,17 +185,20 @@ function renderPage(bodyHtml) {
 <header class="site-header">
   <h1>OpenClerk</h1>
   <nav>
+    <a href="index.html">Home</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
     <a href="https://github.com/OpenClerkProject/openclerk-word">Repository</a>
     <a href="https://github.com/OpenClerkProject/openclerk-word/releases">Releases</a>
-    <a href="https://github.com/OpenClerkProject/openclerk-word/issues">Issues</a>
   </nav>
 </header>
 <main>
 ${bodyHtml}
 </main>
 <footer class="site-footer">
-  This site hosts OpenClerk's add-in content and documentation, rendered from
-  <a href="https://github.com/OpenClerkProject/openclerk-word/blob/main/README.md">README.md</a>.
+  <a href="privacy.html">Privacy Policy</a> &middot; <a href="terms.html">Terms of Use</a><br />
+  This site hosts OpenClerk's add-in content and documentation, rendered from the project's
+  <a href="https://github.com/OpenClerkProject/openclerk-word">source repository</a>.
   OpenClerk is not a standalone web app &mdash; install it in Microsoft Word to use it.
 </footer>
 </body>
@@ -179,10 +207,6 @@ ${bodyHtml}
 }
 
 async function main() {
-  if (!fs.existsSync(readmePath)) {
-    throw new Error(`README not found: ${readmePath}`);
-  }
-  const distDir = path.dirname(outputPath);
   if (!fs.existsSync(distDir)) {
     throw new Error(`dist/ not found -- run the webpack build first: ${distDir}`);
   }
@@ -190,11 +214,19 @@ async function main() {
   // marked is published ESM-only; dynamic import() works from CommonJS on Node 18 (CI's build
   // job), unlike require(), which throws ERR_REQUIRE_ESM there.
   const { marked } = await import('marked');
+  const renderer = buildRenderer(marked);
 
-  const markdown = fs.readFileSync(readmePath, 'utf8');
-  const bodyHtml = rewriteRelativeLinks(marked.parse(markdown, { renderer: buildRenderer(marked) }));
-  fs.writeFileSync(outputPath, renderPage(bodyHtml), 'utf8');
-  console.log('Wrote', outputPath);
+  for (const page of PAGES) {
+    const srcPath = path.join(repoRoot, page.src);
+    if (!fs.existsSync(srcPath)) {
+      throw new Error(`Source doc not found: ${srcPath}`);
+    }
+    const markdown = fs.readFileSync(srcPath, 'utf8');
+    const bodyHtml = rewriteRelativeLinks(marked.parse(markdown, { renderer }));
+    const outPath = path.join(distDir, page.out);
+    fs.writeFileSync(outPath, renderPage(bodyHtml, page.title), 'utf8');
+    console.log('Wrote', outPath);
+  }
 }
 
 main().catch((err) => {
