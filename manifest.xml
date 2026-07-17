@@ -23,6 +23,19 @@
   <Hosts>
     <Host Name="Document"/>
   </Hosts>
+  <!-- WordApi 1.4 is the true floor for this add-in: the Embed Cited Text feature uses the comments
+       API (Range.insertComment / Body.getComments), added in WordApi 1.4. Every other API used
+       (search, insertHtml/insertText/insertOoxml, Range.hyperlinks) sits at or below 1.4; nothing
+       needs 1.5+. Requiring 1.4 keeps perpetual/volume-licensed Word (2019/2021/LTSC) supported
+       alongside Microsoft 365 and Word on the web, the broad cross-platform reach the code already
+       targets (see the getComments-over-document.comments note in word.ts). AddInCommands is
+       intentionally NOT required here: gating on it would stop the add-in loading on hosts that
+       support task panes but not ribbon commands, and the commands degrade gracefully on their own. -->
+  <Requirements>
+    <Sets DefaultMinVersion="1.4">
+      <Set Name="WordApi" MinVersion="1.4"/>
+    </Sets>
+  </Requirements>
   <DefaultSettings>
     <SourceLocation DefaultValue="https://localhost:3000/taskpane.html"/>
   </DefaultSettings>
