@@ -17,7 +17,10 @@ knowing what Git is, or writing code.
 
 ### Option A: Fill out a form (easiest, recommended for most people)
 
-1. Go to [github.com/OpenClerkProject/openclerk-word/issues/new/choose](https://github.com/OpenClerkProject/openclerk-word/issues/new/choose).
+1. Go to [github.com/OpenClerkProject/openclerk-core/issues/new/choose](https://github.com/OpenClerkProject/openclerk-core/issues/new/choose) --
+   the Bluebook rule data and rule-checking logic this form reports against lives in
+   `openclerk-core`, not this repo, even though you may have noticed the problem while using
+   OpenClerk for Word.
 2. Pick **"Bluebook citation correction."**
 3. Fill in the form: what citation you were checking, what OpenClerk said versus what it should
    have said, and a source backing up the correction (a page of the Bluebook, a law library
@@ -33,7 +36,7 @@ code.
 If you're comfortable with the idea of "editing a small text file in a web browser," you can
 propose the fix yourself, and GitHub will create the pull request for you automatically:
 
-1. Open [`src/taskpane/bluebook/manualCorrections.ts`](src/taskpane/bluebook/manualCorrections.ts)
+1. Open [`openclerk-core: src/bluebook/manualCorrections.ts`](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/manualCorrections.ts)
    on GitHub. This is the **one file** set aside specifically for community corrections -- it's
    small, in plain English, and separate from the large auto-generated data files (which get
    overwritten whenever that data is refreshed from reporters-db, so edits there wouldn't stick).
@@ -68,9 +71,9 @@ make the edit.
 
 ### Why corrections live in a separate file
 
-`src/taskpane/bluebook/manualCorrections.ts` exists specifically so community contributions are
+`manualCorrections.ts` (in openclerk-core's `src/bluebook/`) exists specifically so community contributions are
 safe from being silently overwritten. The bulk of the citation data
-([`src/taskpane/bluebook/generated/`](src/taskpane/bluebook/generated/)) is regenerated
+([`openclerk-core: src/bluebook/generated/`](https://github.com/OpenClerkProject/openclerk-core/tree/main/src/bluebook/generated/)) is regenerated
 periodically straight from reporters-db (see [`npm run
 bluebook:update-data`](README.md#vendored-reference-data)) -- any hand-edits there would be lost
 the next time that happens. `manualCorrections.ts` is never touched by that process, so it's the

@@ -5,3 +5,6 @@ openclerk-addin-offline.zip
 .offline-vendor-cache
 .vscode/testfile1.docx
 .vscode/testfile2.docx
+
+# GSD research HTTP fetch cache -- machine-generated, TTL-expiring; not source
+.planning/research/.cache/

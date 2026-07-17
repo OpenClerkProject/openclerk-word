@@ -19,6 +19,109 @@ OpenClerk is a Word add-in (task pane) for legal citation work: hyperlinking cas
 
 > **Spotted a wrong Bluebook citation rule?** No coding experience needed to fix it — see [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a form you can fill out, or a one-file edit you can make directly on GitHub.com.
 
+## Download and install from GitHub
+
+OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
+
+### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
+1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
+2. Download the latest `openclerk-addin.zip` release asset.
+3. Extract the ZIP. It's intentionally small — it contains only:
+   - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
+   - `installer/install-openclerk.ps1` — a standalone PowerShell installer for Windows (no Node.js required)
+   - `installer/install-openclerk.cmd` — a double-clickable wrapper around the `.ps1` installer
+   - `installer/install-openclerk.sh` — a standalone bash installer for macOS (no Node.js required)
+
+   Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
+4. Run the installer for your platform:
+
+   **Windows** — double-click `installer\install-openclerk.cmd` (double-clicking the `.ps1` directly opens it in an editor instead of running it, since that's Windows' default action for `.ps1` files), or run the PowerShell script from a console yourself:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
+   ```
+
+   This copies `manifest.xml` into Word's local add-in manifest folder (`%LOCALAPPDATA%\Microsoft\Office\16.0\WEF`).
+
+   **macOS** — open Terminal, `cd` into the extracted folder, and run:
+
+   ```bash
+   ./installer/install-openclerk.sh
+   ```
+
+   This copies `manifest.xml` into Word for Mac's shared sideloading folder (`~/Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef`) — the same folder every Office app on the Mac scans for sideloaded manifests, regardless of which one you use to install it. The script is already marked executable inside the ZIP; if your unzip tool strips that bit, run `chmod +x installer/install-openclerk.sh` first. Pass `--dry-run` to preview the install target without copying anything, or `--target <dir>` to install somewhere else.
+
+5. Restart Word and the **OpenClerk** button will appear on the **Home** ribbon.
+
+> **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installers are pure PowerShell (Windows) and bash (macOS).
+
+### Verifying a release download
+
+Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
+
+**Checksum:**
+```powershell
+Get-FileHash openclerk-addin.zip -Algorithm SHA256
+# Compare the hash against the matching line in SHA256SUMS
+```
+
+**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
+```bash
+gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
+```
+This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
+
+### Option 2: Install from GitHub Actions workflow artifact
+1. Open the **Actions** tab in this repo.
+2. Select the latest successful **CI** workflow run.
+3. Scroll to the **Artifacts** section and download `openclerk-addin`.
+4. Extract the downloaded artifact.
+5. Follow the same steps as Option 1 (run `installer\install-openclerk.ps1` on Windows, or `./installer/install-openclerk.sh` on macOS).
+
+### Option 3: Manual sideload via manifest
+If you prefer to sideload the manifest manually in Word Desktop:
+1. Extract `openclerk-addin.zip` (from a release or CI artifact).
+2. In Word, go to `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
+3. Select the `manifest.xml` from the extracted folder.
+
+The manifest already points to the add-in content hosted on GitHub Pages — no local server needed.
+
+### Option 4: Create a local install package
+If you want to build and package locally (requires Node.js — for contributors only):
+
+```bash
+npm install
+npm run package
+```
+
+This creates `openclerk-addin.zip` at the repo root with the same contents as the release package.
+
+### Option 5: Clone the repository and install locally (development)
+See the [Development](#development) section below for instructions on running the add-in from a local dev server.
+
+### Option 6: Run fully offline (no internet connection required, Windows only)
+
+Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead. **This option is currently Windows-only** — the setup script binds a self-signed HTTPS certificate and registers a scheduled task using Windows-specific APIs (`New-SelfSignedCertificate`, Task Scheduler) that don't have a macOS equivalent:
+
+1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
+2. Extract it, then run the setup script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
+```
+
+3. Restart Word.
+
+No administrator approval or UAC prompt is needed — the certificate is created per-user (`Cert:\CurrentUser\My`, non-exportable, trusted via `Cert:\CurrentUser\Root`) and the local server terminates TLS itself, so nothing here touches machine-wide configuration.
+
+This installs a small local web server that:
+- **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
+- **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
+- **Runs hidden and starts automatically at login** (via a Scheduled Task named `OpenClerkLocalServer`, running with standard — not elevated — rights), so the add-in works immediately without you needing to start anything yourself.
+- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
+
+See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1 -Uninstall`.
+
 ## Features
 
 OpenClerk has four tabs, each a self-contained workflow:
@@ -83,14 +186,14 @@ The **Online Lookup** tab is an alternative to the file-parsing workflow on the 
 
 the selected provider is asked about that citation; if it immediately resolves to a single case, OpenClerk hyperlinks it, otherwise that citation is left untouched and the scan moves on to the next one — no error, no interruption.
 
-Providers are plugins implementing `CitationProvider` in [src/taskpane/providers/types.ts](src/taskpane/providers/types.ts) and self-registering with `citationProviderRegistry` in [src/taskpane/providers/index.ts](src/taskpane/providers/index.ts). To add a new one (a firm's internal search API, another public case-law database, etc.), implement the interface and register an instance — nothing else in the add-in needs to change.
+Providers are plugins implementing `CitationProvider` in [openclerk-core: src/providers/types.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/types.ts) and self-registering with `citationProviderRegistry` in [openclerk-core: src/providers/index.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/index.ts). To add a new one (a firm's internal search API, another public case-law database, etc.), implement the interface and register an instance — nothing else in the add-in needs to change.
 
-**Citation scanner known limitations** (validated by hand against a real trial brief, not committed to this repo): the scanner in [citationParser.ts](src/taskpane/providers/citationParser.ts) handles multi-pincite lists (`503, 505, 508, 513`), pincite ranges (`705-06`), and reporters with embedded digits (`F. Supp. 3d`, `F.4th`) correctly, but does not currently handle footnote pincites (`567 n.1`), a stray typo like a doubled comma before the parenthetical, or parallel citations to a second reporter (`24 Misc. 2d 790, 200 N.Y.S.2d 126 (1960)`) — the last of these gets misparsed (matching the second reporter, treating the first as part of the case name) rather than cleanly skipped. See the "known limitation" tests in `tests/providers.test.ts` for exact behavior.
+**Citation scanner known limitations** (validated by hand against a real trial brief, not committed to this repo): the scanner in [citationParser.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/citationParser.ts) handles multi-pincite lists (`503, 505, 508, 513`), pincite ranges (`705-06`), and reporters with embedded digits (`F. Supp. 3d`, `F.4th`) correctly, but does not currently handle footnote pincites (`567 n.1`), a stray typo like a doubled comma before the parenthetical, or parallel citations to a second reporter (`24 Misc. 2d 790, 200 N.Y.S.2d 126 (1960)`) — the last of these gets misparsed (matching the second reporter, treating the first as part of the case name) rather than cleanly skipped. See the "known limitation" tests in `tests/providers.test.ts` for exact behavior.
 
 Built-in providers:
-- **CourtListener** ([courtListenerProvider.ts](src/taskpane/providers/courtListenerProvider.ts)) — Free Law Project's free case-law search. Requires a free account and API token from [courtlistener.com/profile/api-token](https://www.courtlistener.com/profile/api-token/) — CourtListener's citation-lookup API returns `401` for unauthenticated requests, so there's no working anonymous mode despite what some of their documentation examples show.
-- **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](src/taskpane/providers/lexisNexisProvider.ts), [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts), [bloombergLawProvider.ts](src/taskpane/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so OpenClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
-- **USPTO Patent Center** ([usptoPatentCenterProvider.ts](src/taskpane/providers/usptoPatentCenterProvider.ts)) — **TODO, not implemented.** Registered as a placeholder (shows up in the provider list, always reports "not found" so citations are skipped) so the plugin wiring can be exercised end-to-end before a real Patent Center / PEDS integration is built for the Non-patent Literature workflow.
+- **CourtListener** ([courtListenerProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/courtListenerProvider.ts)) — Free Law Project's free case-law search. Requires a free account and API token from [courtlistener.com/profile/api-token](https://www.courtlistener.com/profile/api-token/) — CourtListener's citation-lookup API returns `401` for unauthenticated requests, so there's no working anonymous mode despite what some of their documentation examples show.
+- **LexisNexis, Westlaw, Bloomberg Law** ([lexisNexisProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/lexisNexisProvider.ts), [westlawProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/westlawProvider.ts), [bloombergLawProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/bloombergLawProvider.ts)) — these are contract-gated enterprise APIs. Each vendor provisions its own base URL and OAuth2 client credentials per customer, so OpenClerk doesn't (and can't) ship a fixed endpoint or key; you supply your API base URL, client ID, and client secret from your firm's contract in the Online Lookup tab. The bundled implementations use the standard OAuth2 client-credentials flow and a `POST <base>/search/cases`-shaped request as a starting point — confirm the exact token and search paths in your vendor's API documentation and adjust the `TOKEN_PATH`/`SEARCH_PATH` constants at the top of each file if they differ.
+- **USPTO Patent Center** ([usptoPatentCenterProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/usptoPatentCenterProvider.ts)) — **TODO, not implemented.** Registered as a placeholder (shows up in the provider list, always reports "not found" so citations are skipped) so the plugin wiring can be exercised end-to-end before a real Patent Center / PEDS integration is built for the Non-patent Literature workflow.
 
 ### Getting credentials for each provider
 
@@ -107,7 +210,7 @@ Built-in providers:
 **Westlaw** (requires an existing Westlaw/Thomson Reuters subscription):
 1. Visit the [Thomson Reuters Developer Portal](https://developers.thomsonreuters.com/) and contact Thomson Reuters support to request API access under your firm's existing Westlaw agreement — this isn't self-service signup; TR provisions it per customer.
 2. TR support provides a Client ID, Client Secret, the authentication (token) endpoint, and your API base URL.
-3. Enter those into the Westlaw fields on the Online Lookup tab (adjust `TOKEN_PATH` in [westlawProvider.ts](src/taskpane/providers/westlawProvider.ts) if the endpoint TR gives you doesn't match the default `/oauth/token`).
+3. Enter those into the Westlaw fields on the Online Lookup tab (adjust `TOKEN_PATH` in [westlawProvider.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/westlawProvider.ts) if the endpoint TR gives you doesn't match the default `/oauth/token`).
 
 **Bloomberg Law** (requires an existing Bloomberg Law subscription):
 1. Contact your Bloomberg account representative, or Bloomberg Law's help desk (888.560.2529 / help@bloomberglaw.com), to request Web API access for your firm's account.
@@ -136,23 +239,17 @@ Each citation in the results list is clickable: clicking it searches the documen
 
 The reporter (Table T1), case-name (Table T6), and state (Table T10) abbreviation checks are powered by [reporters-db](https://github.com/freelawproject/reporters-db) (BSD-2-Clause), Free Law Project's open, actively-maintained abbreviation database — the same one that powers CourtListener's own citation parser (`eyecite`). As of this writing it covers **1,342 valid reporter forms + 2,250 known malformed variations**, **231 case-name abbreviations**, and all 50 states.
 
-This data is fetched and trimmed **once, at development time**, by [scripts/generate-bluebook-data.js](scripts/generate-bluebook-data.js) into `src/taskpane/bluebook/generated/*.ts` — those generated files are committed to the repo like any other source file. **The add-in itself makes no network call to fetch this data**; it's bundled into the JS just like the hand-written rule-sets, preserving the zero-network-calls-by-default architecture (see [Security & IT review](#security--it-review)). To pick up upstream updates, run:
-
-```bash
-npm run bluebook:update-data
-```
-
-and commit the diff.
+This data is fetched and trimmed **once, at development time**, by [openclerk-core's scripts/generate-bluebook-data.js](https://github.com/OpenClerkProject/openclerk-core/blob/main/scripts/generate-bluebook-data.js) into `src/bluebook/generated/*.ts` in that repo — those generated files are committed there like any other source file, and this add-in picks them up transitively through its `openclerk-core` dependency. **The add-in itself makes no network call to fetch this data**; it's bundled into the JS just like the hand-written rule-sets, preserving the zero-network-calls-by-default architecture (see [Security & IT review](#security--it-review)). To pick up upstream updates, run `npm run bluebook:update-data` in [openclerk-core](https://github.com/OpenClerkProject/openclerk-core), commit the diff there, cut a new release tag, and bump this repo's `openclerk-core` dependency version in `package.json`.
 
 **Reporter-format checking distinguishes two categories** to avoid false positives: a reporter's independently valid *edition* forms (e.g. `"A."`, `"A.2d"`, `"A.3d"` are all correct — different chronological editions of the same series, not errors) versus its known *variations* (malformed spellings like `"A2d"` or `"Atl.2d"`, which are flagged with the specific correct form). An ordinal typo (`"2nd"`/`"3rd"`) is caught generically for every reporter, not just the ones reporters-db happens to have recorded a variation entry for.
 
-**Found a wrong or missing rule?** [`src/taskpane/bluebook/manualCorrections.ts`](src/taskpane/bluebook/manualCorrections.ts) is a small, hand-maintained file — separate from the generated data above, so it's never overwritten by `bluebook:update-data` — where corrections and additions go. See [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a walkthrough that assumes no coding background.
+**Found a wrong or missing rule?** [`openclerk-core: src/bluebook/manualCorrections.ts`](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/manualCorrections.ts) is a small, hand-maintained file — separate from the generated data above, so it's never overwritten by `bluebook:update-data` — where corrections and additions go. See [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a walkthrough that assumes no coding background.
 
-Like the citation lookup providers, Bluebook editions are plugins implementing `BluebookRuleSet` in [src/taskpane/bluebook/types.ts](src/taskpane/bluebook/types.ts) and registering with `bluebookRuleSetRegistry` in [src/taskpane/bluebook/index.ts](src/taskpane/bluebook/index.ts). Pick an edition from the dropdown on the Bluebook Check tab; each is checked independently and adding a new edition (or a firm/journal-specific house style) means implementing the interface and registering an instance.
+Like the citation lookup providers, Bluebook editions are plugins implementing `BluebookRuleSet` in [openclerk-core: src/bluebook/types.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/types.ts) and registering with `bluebookRuleSetRegistry` in [openclerk-core: src/bluebook/index.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/index.ts). Pick an edition from the dropdown on the Bluebook Check tab; each is checked independently and adding a new edition (or a firm/journal-specific house style) means implementing the interface and registering an instance.
 
 Built-in editions — **20th (2015)**, **21st (2020)**, **22nd (2025, current)**:
-- All three run the same shared, edition-stable Rule 10 (case citation) checks listed above — see [commonRules.ts](src/taskpane/bluebook/commonRules.ts). Per the [University of Washington Law Library's Bluebook 101 guide](https://lib.law.uw.edu/bluebook101/editions) ([22nd edition page](https://lib.law.uw.edu/bluebook101/22nd)), the documented changes across these three editions are concentrated in statutory/online-source citation, typeface terminology, and new source types (audio/video, AI-generated content, state administrative materials) — not in core case-citation format, so there was no accurate edition-specific case-citation rule to invent for most of Rule 10.
-- The one genuine, verified case-citation-relevant difference: the **21st edition merged Table T6** (case-name word abbreviations) **with the former Table T13.2** (periodical/institutional-author abbreviations), so several words — e.g. *Laboratory* → `Lab'y`, *Employment*/*Employee* → `Emp.`, and similarly *Environment* → `Env't`, *Research* → `Rsch.`, *Psychology* → `Psych.`, *Sociology* → `Socio.`, *Comparative* → `Compar.` — went from "spelled out in case names, abbreviated only in institutional-author citations" to "abbreviated everywhere." The 20th-edition rule-set doesn't flag these words in case names; the 21st and 22nd do. Sources: the UW guide above and Mary Whisner, [Bluebook Weight Loss Program, Part Two: The Merger of Tables T6 and T13.2](https://citeblog.access-to-law.com/?p=1074) (which specifically confirms the *Laboratory*/*Employment* mappings; the remaining word list is the same category of T6/T13.2-merger abbreviation but hasn't been independently verified word-for-word against the official table — see the sourcing note in [caseNameAbbreviations.ts](src/taskpane/bluebook/caseNameAbbreviations.ts)).
+- All three run the same shared, edition-stable Rule 10 (case citation) checks listed above — see [commonRules.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/commonRules.ts). Per the [University of Washington Law Library's Bluebook 101 guide](https://lib.law.uw.edu/bluebook101/editions) ([22nd edition page](https://lib.law.uw.edu/bluebook101/22nd)), the documented changes across these three editions are concentrated in statutory/online-source citation, typeface terminology, and new source types (audio/video, AI-generated content, state administrative materials) — not in core case-citation format, so there was no accurate edition-specific case-citation rule to invent for most of Rule 10.
+- The one genuine, verified case-citation-relevant difference: the **21st edition merged Table T6** (case-name word abbreviations) **with the former Table T13.2** (periodical/institutional-author abbreviations), so several words — e.g. *Laboratory* → `Lab'y`, *Employment*/*Employee* → `Emp.`, and similarly *Environment* → `Env't`, *Research* → `Rsch.`, *Psychology* → `Psych.`, *Sociology* → `Socio.`, *Comparative* → `Compar.` — went from "spelled out in case names, abbreviated only in institutional-author citations" to "abbreviated everywhere." The 20th-edition rule-set doesn't flag these words in case names; the 21st and 22nd do. Sources: the UW guide above and Mary Whisner, [Bluebook Weight Loss Program, Part Two: The Merger of Tables T6 and T13.2](https://citeblog.access-to-law.com/?p=1074) (which specifically confirms the *Laboratory*/*Employment* mappings; the remaining word list is the same category of T6/T13.2-merger abbreviation but hasn't been independently verified word-for-word against the official table — see the sourcing note in [caseNameAbbreviations.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/bluebook/caseNameAbbreviations.ts)).
 
 ## Embedding cited opinion text
 
@@ -160,11 +257,11 @@ The **Embed Cited Text** tab finds case citations that pinpoint a specific page 
 
 A Word comment is collapsed to a small icon in the margin by default and expands inline when clicked — that's deliberately reused as the "embedded, expandable/collapsible" mechanism here instead of building a custom widget, since it's a native Word feature that already does exactly this, and the user can review, reply to, resolve, or delete the comments with Word's own comment tools. Click **Remove embedded text** to delete only the comments OpenClerk added (it never touches comments you wrote yourself).
 
-**This requires a provider that can supply full opinion text, not just a hyperlink.** Today only **CourtListener** implements this (see `OpinionTextCapableProvider` in [src/taskpane/providers/types.ts](src/taskpane/providers/types.ts)), and — unlike CourtListener's basic citation-to-hyperlink lookup — it requires an API token; CourtListener's opinion-text endpoints don't have a free anonymous tier. Connect a token first via the Manage Hyperlinks tab's Online Lookup source, then the Embed Cited Text tab will show "Ready" next to the provider once it's usable.
+**This requires a provider that can supply full opinion text, not just a hyperlink.** Today only **CourtListener** implements this (see `OpinionTextCapableProvider` in [openclerk-core: src/providers/types.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/types.ts)), and — unlike CourtListener's basic citation-to-hyperlink lookup — it requires an API token; CourtListener's opinion-text endpoints don't have a free anonymous tier. Connect a token first via the Manage Hyperlinks tab's Online Lookup source, then the Embed Cited Text tab will show "Ready" next to the provider once it's usable.
 
-Extracting the exact cited page from an opinion's full text is a best-effort heuristic, not a guarantee: it looks for "star pagination" markers (e.g. `*705`) — the standard convention Westlaw and most public-domain legal text corpora use to mark where each print-reporter page begins — and an opinion's text isn't required to include them (it depends on the opinion's original source). If no markers are found, or none match the requested page, that citation is skipped and reported as such rather than guessing at an excerpt. See [opinionTextExtractor.ts](src/taskpane/providers/opinionTextExtractor.ts) and [pincitePages.ts](src/taskpane/providers/pincitePages.ts) for the extraction and page-range-expansion logic, both covered by unit tests against synthetic fixture text.
+Extracting the exact cited page from an opinion's full text is a best-effort heuristic, not a guarantee: it looks for "star pagination" markers (e.g. `*705`) — the standard convention Westlaw and most public-domain legal text corpora use to mark where each print-reporter page begins — and an opinion's text isn't required to include them (it depends on the opinion's original source). If no markers are found, or none match the requested page, that citation is skipped and reported as such rather than guessing at an excerpt. See [opinionTextExtractor.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/opinionTextExtractor.ts) and [pincitePages.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/pincitePages.ts) for the extraction and page-range-expansion logic, both covered by unit tests against synthetic fixture text.
 
-**CourtListener's default rate limit is modest** — 5 requests/minute, 50/hour, 125/day per [their API documentation](https://www.courtlistener.com/help/api/rest/) — and each pincite citation costs two requests here (resolving the citation to a case, then fetching that case's opinion text). On a document with several pincite citations, later ones can come back rate-limited before earlier ones finish. This is reported distinctly from "not found" (see `OpinionExcerptResult.rateLimited` in [types.ts](src/taskpane/providers/types.ts)) — wait a minute and click "Embed cited opinion text" again to pick up the rest; already-embedded citations aren't re-fetched or duplicated.
+**CourtListener's default rate limit is modest** — 5 requests/minute, 50/hour, 125/day per [their API documentation](https://www.courtlistener.com/help/api/rest/) — and each pincite citation costs two requests here (resolving the citation to a case, then fetching that case's opinion text). On a document with several pincite citations, later ones can come back rate-limited before earlier ones finish. This is reported distinctly from "not found" (see `OpinionExcerptResult.rateLimited` in [types.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/types.ts)) — wait a minute and click "Embed cited opinion text" again to pick up the rest; already-embedded citations aren't re-fetched or duplicated.
 
 ### Testing against the real CourtListener API locally
 
@@ -203,7 +300,7 @@ Get a free token from [CourtListener's API documentation](https://www.courtliste
 | **Online Lookup** — LexisNexis / Westlaw / Bloomberg Law | Yes (opt-in) | The same per-citation string, plus an OAuth2 bearer token obtained from the credentials the user entered | The API base URL *that user typed in*, from their firm's existing vendor contract | User clicks "Connect", then "Scan & hyperlink via API" |
 | **Embed Cited Text** — CourtListener | Yes (opt-in) | The individual matched citation string, plus a required API token, to resolve the citation and then fetch that opinion's text | `https://www.courtlistener.com` only | User clicks "Embed cited opinion text" with CourtListener selected |
 
-The extraction that produces those per-citation strings (`extractCaseCitations` in [citationParser.ts](src/taskpane/providers/citationParser.ts)) runs entirely inside the Word document object model, in-browser; only the short matched substrings — never `context.document.body.getText()`'s full output — are ever passed to `fetch()`. That's checkable directly: every network call in the add-in lives in [src/taskpane/providers/](src/taskpane/providers/) and nowhere else.
+The extraction that produces those per-citation strings (`extractCaseCitations` in [citationParser.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/citationParser.ts)) runs entirely inside the Word document object model, in-browser; only the short matched substrings — never `context.document.body.getText()`'s full output — are ever passed to `fetch()`. That's checkable directly: every network call OpenClerk makes lives in [openclerk-core's `src/providers/`](https://github.com/OpenClerkProject/openclerk-core/tree/main/src/providers) (a public, open-source dependency this add-in consumes unmodified) and nowhere else in this repo — `word.ts` is the only place here that invokes it.
 
 ### Permissions requested
 
@@ -212,8 +309,8 @@ The manifest requests exactly one Office permission: `<Permissions>ReadWriteDocu
 ### Credential handling
 
 - Credential inputs are rendered as password-masked fields (`<input type="password">`) for every secret-typed field (API tokens, client secrets) — see `renderProviderPanel` in [word.ts](src/taskpane/word.ts).
-- Credentials are held in memory only, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](src/taskpane/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any OpenClerk-controlled server, and are cleared by clicking "Disconnect" or by closing/reloading the task pane.
-- Enterprise provider API base URLs are required to start with `https://` — OpenClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](src/taskpane/providers/base.ts)).
+- Credentials are held in memory only, inside each provider instance (see `EnterpriseCitationProvider` in [base.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/base.ts)). They are never written to `localStorage`, `sessionStorage`, cookies, or any OpenClerk-controlled server, and are cleared by clicking "Disconnect" or by closing/reloading the task pane.
+- Enterprise provider API base URLs are required to start with `https://` — OpenClerk refuses to authenticate over plain HTTP, so a credential can't accidentally be sent unencrypted (see the check in `EnterpriseCitationProvider.authenticate`, [base.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/base.ts)).
 - **No telemetry or analytics** are collected by the add-in itself, successful or not.
 - **`manifest.xml`'s `<AppDomains>`** declares every external domain OpenClerk talks to out of the box (`courtlistener.com`); if your policy requires allow-listing every contacted domain at the network/firewall level, add your firm's specific LexisNexis/Westlaw/Bloomberg Law API host there too before deploying.
 - **⚠️ When enabling an enterprise provider, widen `connect-src` in [taskpane.html](src/taskpane/taskpane.html)'s CSP to your firm's *specific* API domain — never to a wildcard (e.g. `https:`).** The add-in only checks that a typed-in API base URL starts with `https://`; it does not allow-list which HTTPS host it's allowed to be. A wildcarded `connect-src` would let a mistyped or malicious base URL send that provider's OAuth credentials to an unintended host. A domain-specific `connect-src` closes this off at the browser level regardless of what URL a user types in.
@@ -250,7 +347,7 @@ OpenClerk itself is a thin, client-side Word add-in with no hosted service of it
 
 - The file-parsing (**Case Law**) and parenthetical (**Non-patent Literature**) workflows are entirely local (no network calls) and are unaffected by the Online Lookup feature.
 - Online Lookup makes one network round-trip per detected citation, **sequentially** (never in parallel), specifically to stay under each provider's rate limits — CourtListener's [documented default](https://www.courtlistener.com/help/api/rest/), for example, is just 5 requests/minute (50/hour, 125/day) for a free account. A document with many citations will take roughly `(number of citations) × (provider round-trip time)` to finish, and a large document may hit CourtListener's rate limit partway through, leaving the rest unresolved until you wait and re-run; prefer the file-parsing workflow when you already have a hyperlinked source document, since it's effectively instant and has no rate limit at all.
-- Being rate-limited is reported distinctly from "not found" wherever a provider supports it (see `RateLimitAwareProvider` in [types.ts](src/taskpane/providers/types.ts)) — Online Lookup's status line calls out how many citations were rate-limited versus genuinely unresolved, and Find Hallucinations won't call a citation a "possible hallucination" just because a request got throttled before it could check. Re-running Online Lookup after a partial run skips citations that already have a hyperlink instead of re-spending API quota verifying them again.
+- Being rate-limited is reported distinctly from "not found" wherever a provider supports it (see `RateLimitAwareProvider` in [types.ts](https://github.com/OpenClerkProject/openclerk-core/blob/main/src/providers/types.ts)) — Online Lookup's status line calls out how many citations were rate-limited versus genuinely unresolved, and Find Hallucinations won't call a citation a "possible hallucination" just because a request got throttled before it could check. Re-running Online Lookup after a partial run skips citations that already have a hyperlink instead of re-spending API quota verifying them again.
 - No new bundle dependencies were added for this feature — it's built on the browser's native `fetch`, already available in both the Windows (WebView2) and Mac (WKWebView) Word task pane runtimes.
 
 ## Dependency security fixes
@@ -267,96 +364,6 @@ All of the following are **devDependency-only** issues — they live in the loca
 | `webpack-dev-server` | [GHSA-mx8g-39q3-5c79](https://github.com/advisories/GHSA-mx8g-39q3-5c79) — HMR WebSocket interception via permissive user-configured proxies | Moderate | `5.2.4` (exact pin) | `5.2.6` (exact pin) | Plain patch-level version bump, same `5.x` line, same `node >= 18.12.0` engine requirement — no compatibility risk expected. |
 
 **Why `overrides` instead of upgrading `copy-webpack-plugin`/`webpack-dev-server` to their latest majors?** `npm audit fix --force` offered `copy-webpack-plugin@14.0.0` and (for a full sockjs fix) `webpack-dev-server@6.0.0`, but those require Node ≥20.9.0 and ≥22.15.0 respectively — bumping this project's minimum Node version is a separate decision with its own blast radius (CI config, contributor tooling), not something to bundle silently into a vulnerability fix. The `overrides` field lets us force the two actually-vulnerable leaf packages (`uuid`, `serialize-javascript`) to patched versions everywhere in the tree, which is what actually eliminates the advisories, without forcing major-version churn on `copy-webpack-plugin`/`webpack-dev-server` or raising the Node floor. If a future contributor *does* want to move to `webpack-dev-server@6`/Node 22+, these overrides can simply be deleted at that point since they'd be redundant.
-
-## Download and install from GitHub
-
-OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
-
-### Option 1: Install from GitHub Release asset (recommended — no Node.js required)
-1. Go to the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases) for this repo.
-2. Download the latest `openclerk-addin.zip` release asset.
-3. Extract the ZIP. It's intentionally small — it contains only:
-   - `manifest.xml` — the add-in manifest (URLs already point to GitHub Pages)
-   - `installer/install-openclerk.ps1` — a standalone PowerShell installer (no Node.js required)
-
-   Nothing else ships here: the manifest's URLs point at GitHub Pages, so Word fetches the taskpane, commands, and icons live over HTTPS rather than reading local files.
-4. **Windows**: open PowerShell and run the installer:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File installer\install-openclerk.ps1
-```
-
-   This copies `manifest.xml` into Word's local add-in manifest folder (`%LOCALAPPDATA%\Microsoft\Office\16.0\WEF`).
-
-5. Restart Word and the **OpenClerk** button will appear on the **Home** ribbon.
-
-> **No Node.js or npm is needed.** The add-in content is served from GitHub Pages; the installer is pure PowerShell.
-
-### Verifying a release download
-
-Every release also includes a `SHA256SUMS` file and a [build provenance attestation](https://github.com/OpenClerkProject/openclerk-word/attestations), so you can confirm a downloaded zip actually matches what this repo's CI built, rather than a modified copy from somewhere else.
-
-**Checksum:**
-```powershell
-Get-FileHash openclerk-addin.zip -Algorithm SHA256
-# Compare the hash against the matching line in SHA256SUMS
-```
-
-**Provenance (requires the [GitHub CLI](https://cli.github.com/)):**
-```bash
-gh attestation verify openclerk-addin.zip --repo OpenClerkProject/openclerk-word
-```
-This cryptographically proves the file was built by this repo's GitHub Actions workflow from a specific commit, not hand-uploaded by anyone with release-creation access.
-
-### Option 2: Install from GitHub Actions workflow artifact
-1. Open the **Actions** tab in this repo.
-2. Select the latest successful **CI** workflow run.
-3. Scroll to the **Artifacts** section and download `openclerk-addin`.
-4. Extract the downloaded artifact.
-5. Follow the same steps as Option 1 (run `installer\install-openclerk.ps1`).
-
-### Option 3: Manual sideload via manifest
-If you prefer to sideload the manifest manually in Word Desktop:
-1. Extract `openclerk-addin.zip` (from a release or CI artifact).
-2. In Word, go to `Insert` → `My Add-ins` → `Upload My Add-in` → `Add from file`.
-3. Select the `manifest.xml` from the extracted folder.
-
-The manifest already points to the add-in content hosted on GitHub Pages — no local server needed.
-
-### Option 4: Create a local install package
-If you want to build and package locally (requires Node.js — for contributors only):
-
-```bash
-npm install
-npm run package
-```
-
-This creates `openclerk-addin.zip` at the repo root with the same contents as the release package.
-
-### Option 5: Clone the repository and install locally (development)
-See the [Development](#development) section below for instructions on running the add-in from a local dev server.
-
-### Option 6: Run fully offline (no internet connection required)
-
-Both Option 1 and Option 2 need internet access every time the add-in loads, since Word fetches its content live from GitHub Pages. If you need OpenClerk to work with no network connection at all, use the offline package instead:
-
-1. Download `openclerk-addin-offline.zip` from the [GitHub Releases page](https://github.com/OpenClerkProject/openclerk-word/releases).
-2. Extract it, then run the setup script:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File installer\setup-local-server.ps1
-```
-
-3. Windows will prompt for administrator approval once (UAC) — this is only used to bind a self-signed HTTPS certificate to a single `127.0.0.1` port and is not required again after the first run.
-4. Restart Word.
-
-This installs a small local web server that:
-- **Only binds to `127.0.0.1`** on one fixed port (`44399` by default) — it's unreachable from the network, and no other ports are opened.
-- **Requires a per-install secret token** to serve any content, so other local processes can't casually request pages from it.
-- **Runs hidden and starts automatically at login** (via a Scheduled Task named `OpenClerkLocalServer`), so the add-in works immediately without you needing to start anything yourself.
-- **Includes local copies of `office.js` and the Fabric CSS** (vendored from Microsoft's CDN at packaging time), so the taskpane doesn't silently require internet access just to load its own framework files.
-
-See `scripts/local-server/serve-openclerk.ps1` and `scripts/local-server/setup-local-server.ps1` for the implementation. To remove it later: `Unregister-ScheduledTask -TaskName OpenClerkLocalServer`, then remove `%LOCALAPPDATA%\OpenClerk\LocalServer`.
 
 ## Self-hosting
 

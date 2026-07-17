@@ -18,7 +18,8 @@
     "node_modules",
     "dist",
     "lib",
-    "lib-amd"
+    "lib-amd",
+    "tools"
   ],
   "ts-node": { 
     "files": true 

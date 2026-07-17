@@ -18,6 +18,7 @@
     "dev-server": "webpack serve --mode development",
     "lint": "office-addin-lint check",
     "lint:fix": "office-addin-lint fix",
+    "typecheck": "tsc --noEmit",
     "prettier": "office-addin-lint prettier",
     "signin": "office-addin-dev-settings m365-account login",
     "signout": "office-addin-dev-settings m365-account logout",
@@ -31,7 +32,6 @@
     "install:addin:dry-run": "node scripts/install-openclerk.js --dry-run",
     "watch": "webpack --mode development --watch",
     "convert-logos": "node scripts/convert-logos.js",
-    "bluebook:update-data": "node scripts/generate-bluebook-data.js",
     "test": "jest",
     "test:live": "jest tests/courtListener.live.test.ts"
   },
@@ -39,6 +39,7 @@
     "@types/jszip": "^3.4.0",
     "core-js": "^3.36.0",
     "jszip": "^3.10.1",
+    "openclerk-core": "^0.3.0",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {

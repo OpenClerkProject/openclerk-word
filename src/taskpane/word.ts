@@ -12,21 +12,24 @@ import {
   normalizeText,
   isLikelyCaseCitation,
   extractParentheticalCitations,
-  escapeHtml,
-  isSafeHyperlinkUrl,
-} from "./utils";
-import {
+  toSafeHyperlinkUrl,
   citationProviderRegistry,
   parseCaseCitation,
   extractCaseCitations,
   expandPincitePages,
   supportsOpinionText,
   supportsRateLimitAwareness,
+  checkCitationsForHallucinations,
   CitationProvider,
   OpinionTextCapableProvider,
   ParsedCitation,
-} from "./providers";
-import { bluebookRuleSetRegistry, BluebookRuleSet, BluebookIssue } from "./bluebook";
+  HallucinationCheckResult,
+  bluebookRuleSetRegistry,
+  BluebookRuleSet,
+  BluebookIssue,
+  SafeHyperlinkUrl,
+} from "openclerk-core";
+import { insertSafeHyperlink, insertSafeComment, insertSafeOoxml } from "./safeInsertion";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
@@ -34,13 +37,11 @@ type TabId = "manage-hyperlinks" | "bluebook-check" | "hallucination-check" | "e
 type HyperlinkScope = "case-law" | "non-case-law" | "both";
 type CaseLawSource = "file" | "online";
 type HallucinationProviderEntry = { id: string; checked: boolean };
-type HallucinationResult = {
+type BluebookCheckedCitation = {
   raw: string;
-  verifiedVia: string | null;
-  skippedProviders: string[];
-  rateLimitedProviders: string[];
+  parsed: ParsedCitation | null;
+  issues: BluebookIssue[];
 };
-type BluebookCheckedCitation = { raw: string; parsed: ParsedCitation | null; issues: BluebookIssue[] };
 type EmbedTextResult = { raw: string; embedded: boolean; reason: string | null };
 
 // Prefix on every comment OpenClerk inserts via "Embed cited opinion text", so "Remove embedded
@@ -50,12 +51,18 @@ type EmbedTextResult = { raw: string; embedded: boolean; reason: string | null }
 // re-fetching (wasteful given CourtListener's rate limit) and inserting a duplicate.
 const EMBEDDED_TEXT_COMMENT_MARKER = "[OpenClerk embedded citation text]";
 
-function buildEmbeddedCommentContent(raw: string, excerpt: string): string {
+// Exported for the feature-level insertion smoke test (tests/smoke.wordInsertion.test.ts), which
+// drives this real builder into the real insertSafeComment sink to prove cited text with &/'/"/<>
+// reaches Word's plain-text comment API uncorrupted (the CR-02 / audit-#1 plain-text-sink guarantee).
+export function buildEmbeddedCommentContent(raw: string, excerpt: string): string {
   return `${EMBEDDED_TEXT_COMMENT_MARKER} ${raw}\n\n${excerpt}`;
 }
 
-function citationHasEmbeddedComment(commentContent: string, raw: string): boolean {
-  return commentContent === `${EMBEDDED_TEXT_COMMENT_MARKER} ${raw}` || commentContent.startsWith(`${EMBEDDED_TEXT_COMMENT_MARKER} ${raw}\n`);
+export function citationHasEmbeddedComment(commentContent: string, raw: string): boolean {
+  return (
+    commentContent === `${EMBEDDED_TEXT_COMMENT_MARKER} ${raw}` ||
+    commentContent.startsWith(`${EMBEDDED_TEXT_COMMENT_MARKER} ${raw}\n`)
+  );
 }
 
 // A source .docx is just a zip file; without limits, a small maliciously-crafted zip can
@@ -88,22 +95,50 @@ Office.onReady((info) => {
     const applyButton = document.getElementById("apply-hyperlinks") as HTMLButtonElement | null;
     const removeButton = document.getElementById("remove-hyperlinks") as HTMLButtonElement | null;
     const workflowSelect = document.getElementById("workflow-select") as HTMLSelectElement | null;
-    const hyperlinkScopeSelect = document.getElementById("hyperlink-scope-select") as HTMLSelectElement | null;
-    const caseLawSourceSelect = document.getElementById("case-law-source-select") as HTMLSelectElement | null;
+    const hyperlinkScopeSelect = document.getElementById(
+      "hyperlink-scope-select"
+    ) as HTMLSelectElement | null;
+    const caseLawSourceSelect = document.getElementById(
+      "case-law-source-select"
+    ) as HTMLSelectElement | null;
     const scanButton = document.getElementById("scan-parentheticals") as HTMLButtonElement | null;
-    const addParentheticalButton = document.getElementById("add-parenthetical-hyperlinks") as HTMLButtonElement | null;
-    const removeParentheticalButton = document.getElementById("remove-parenthetical-hyperlinks") as HTMLButtonElement | null;
+    const addParentheticalButton = document.getElementById(
+      "add-parenthetical-hyperlinks"
+    ) as HTMLButtonElement | null;
+    const removeParentheticalButton = document.getElementById(
+      "remove-parenthetical-hyperlinks"
+    ) as HTMLButtonElement | null;
     const providerSelect = document.getElementById("provider-select") as HTMLSelectElement | null;
-    const providerConnectButton = document.getElementById("provider-connect") as HTMLButtonElement | null;
-    const providerDisconnectButton = document.getElementById("provider-disconnect") as HTMLButtonElement | null;
-    const applyOnlineHyperlinksButton = document.getElementById("apply-online-hyperlinks") as HTMLButtonElement | null;
-    const bluebookEditionSelect = document.getElementById("bluebook-edition-select") as HTMLSelectElement | null;
-    const checkBluebookCitationsButton = document.getElementById("check-bluebook-citations") as HTMLButtonElement | null;
-    const bluebookShowFlaggedOnlyCheckbox = document.getElementById("bluebook-show-flagged-only") as HTMLInputElement | null;
-    const checkHallucinationsButton = document.getElementById("check-hallucinations") as HTMLButtonElement | null;
-    const embedTextProviderSelect = document.getElementById("embed-text-provider-select") as HTMLSelectElement | null;
-    const embedCitedTextButton = document.getElementById("embed-cited-text") as HTMLButtonElement | null;
-    const removeEmbeddedTextButton = document.getElementById("remove-embedded-text") as HTMLButtonElement | null;
+    const providerConnectButton = document.getElementById(
+      "provider-connect"
+    ) as HTMLButtonElement | null;
+    const providerDisconnectButton = document.getElementById(
+      "provider-disconnect"
+    ) as HTMLButtonElement | null;
+    const applyOnlineHyperlinksButton = document.getElementById(
+      "apply-online-hyperlinks"
+    ) as HTMLButtonElement | null;
+    const bluebookEditionSelect = document.getElementById(
+      "bluebook-edition-select"
+    ) as HTMLSelectElement | null;
+    const checkBluebookCitationsButton = document.getElementById(
+      "check-bluebook-citations"
+    ) as HTMLButtonElement | null;
+    const bluebookShowFlaggedOnlyCheckbox = document.getElementById(
+      "bluebook-show-flagged-only"
+    ) as HTMLInputElement | null;
+    const checkHallucinationsButton = document.getElementById(
+      "check-hallucinations"
+    ) as HTMLButtonElement | null;
+    const embedTextProviderSelect = document.getElementById(
+      "embed-text-provider-select"
+    ) as HTMLSelectElement | null;
+    const embedCitedTextButton = document.getElementById(
+      "embed-cited-text"
+    ) as HTMLButtonElement | null;
+    const removeEmbeddedTextButton = document.getElementById(
+      "remove-embedded-text"
+    ) as HTMLButtonElement | null;
 
     if (sideloadMessage) {
       sideloadMessage.style.display = "none";
@@ -214,26 +249,10 @@ async function onSourceFileSelected(event: Event) {
 
     setStatus(`Loaded ${sourceCitationMap.size} citation hyperlink(s) from ${file.name}.`);
   } catch (error) {
-    setStatus(`Unable to read ${file.name}. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to read ${file.name}. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-}
-
-async function applyHyperlinkToItem(
-  context: Word.RequestContext,
-  item: Word.Range,
-  url: string,
-  displayText: string
-): Promise<void> {
-  if (typeof (item as any).insertHyperlink === "function") {
-    (item as any).insertHyperlink(url, displayText, Word.InsertLocation.replace);
-  } else if (typeof (item as any).insertHtml === "function") {
-    const html = `<a href="${escapeHtml(url)}">${escapeHtml(displayText)}</a>`;
-    (item as any).insertHtml(html, Word.InsertLocation.replace);
-  } else {
-    // Last-resort: replace with plain text (no hyperlink)
-    item.insertText(displayText, Word.InsertLocation.replace);
-  }
-  await context.sync();
 }
 
 async function applyCaseLawHyperlinksFromSource() {
@@ -246,22 +265,32 @@ async function applyCaseLawHyperlinksFromSource() {
 
   try {
     await Word.run(async (context) => {
-      // Batch all searches/loads/inserts into a handful of context.sync() calls instead of a
-      // few per citation -- a document with 50-100+ citations previously meant 200-400+
-      // sequential round-trips, which is enough to make the taskpane visibly freeze.
-      const citationEntries = Array.from(sourceCitationMap!.entries()).filter(
-        ([citationText, url]) =>
-          citationText && citationText.length <= MAX_SEARCH_TEXT_LENGTH && url && isSafeHyperlinkUrl(url)
-      );
+      // The search/load/filter passes below are batched into three context.sync() calls
+      // regardless of citation count. The actual insertion loop further down, however, calls
+      // insertSafeHyperlink once per matched citation, and insertSafeHyperlink unconditionally
+      // syncs internally (safeInsertion.ts) -- so a document with 50-100+ citations still means
+      // roughly one context.sync() round-trip per citation for the insertion phase itself. Only
+      // the search/load phase is batched today, not insertion.
+      const citationEntries = Array.from(sourceCitationMap!.entries())
+        .map(([citationText, rawUrl]) => ({ citationText, url: toSafeHyperlinkUrl(rawUrl) }))
+        .filter(
+          (entry) =>
+            entry.citationText &&
+            entry.citationText.length <= MAX_SEARCH_TEXT_LENGTH &&
+            entry.url !== null
+        );
 
-      const searches = citationEntries.map(([citationText, url]) => ({
-        url,
-        results: context.document.body.search(citationText, { matchCase: false, matchWholeWord: false }),
+      const searches = citationEntries.map(({ citationText, url }) => ({
+        url: url as SafeHyperlinkUrl,
+        results: context.document.body.search(citationText, {
+          matchCase: false,
+          matchWholeWord: false,
+        }),
       }));
       searches.forEach((entry) => entry.results.load("items"));
       await context.sync();
 
-      const matchedItems: { item: Word.Range; url: string }[] = [];
+      const matchedItems: { item: Word.Range; url: SafeHyperlinkUrl }[] = [];
       for (const entry of searches) {
         for (const item of entry.results.items) {
           item.load("text");
@@ -283,14 +312,16 @@ async function applyCaseLawHyperlinksFromSource() {
           continue;
         }
         const normalizedText = normalizeText(item.text || "");
-        await applyHyperlinkToItem(context, item, url, normalizedText);
+        await insertSafeHyperlink(context, item, url, normalizedText);
         appliedCount += 1;
       }
 
       setStatus(`Added ${appliedCount} hyperlink(s) to matching case-law citations.`);
     });
   } catch (error) {
-    setStatus(`Unable to apply hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to apply hyperlinks. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -300,7 +331,9 @@ async function removeCaseLawHyperlinks() {
   try {
     await removeAllHyperlinks();
   } catch (error) {
-    setStatus(`Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -326,7 +359,9 @@ async function scanParentheticalCitations() {
       }
     });
   } catch (error) {
-    setStatus(`Unable to scan the document. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to scan the document. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -341,19 +376,26 @@ async function addParentheticalHyperlinks() {
   try {
     await Word.run(async (context) => {
       const validEntries = parentheticalEntries
-        .map((entry) => ({ ...entry, url: entry.url.trim() }))
+        .map((entry) => ({ ...entry, url: toSafeHyperlinkUrl(entry.url.trim()) }))
         .filter(
-          (entry) => entry.url && entry.citation.length <= MAX_SEARCH_TEXT_LENGTH && isSafeHyperlinkUrl(entry.url)
+          (entry): entry is ParentheticalEntry & { url: SafeHyperlinkUrl } =>
+            entry.url !== null && entry.citation.length <= MAX_SEARCH_TEXT_LENGTH
         );
 
       const searches = validEntries.map((entry) => ({
         entry,
-        results: context.document.body.search(entry.citation, { matchCase: false, matchWholeWord: false }),
+        results: context.document.body.search(entry.citation, {
+          matchCase: false,
+          matchWholeWord: false,
+        }),
       }));
       searches.forEach((s) => s.results.load("items"));
       await context.sync();
 
-      const matchedItems: { item: Word.Range; entry: ParentheticalEntry }[] = [];
+      const matchedItems: {
+        item: Word.Range;
+        entry: ParentheticalEntry & { url: SafeHyperlinkUrl };
+      }[] = [];
       for (const s of searches) {
         for (const item of s.results.items) {
           matchedItems.push({ item, entry: s.entry });
@@ -367,14 +409,16 @@ async function addParentheticalHyperlinks() {
         if (item.hyperlinks.items.length > 0) {
           continue;
         }
-        await applyHyperlinkToItem(context, item, entry.url, entry.citation);
+        await insertSafeHyperlink(context, item, entry.url, entry.citation);
         addedCount += 1;
       }
 
       setStatus(`Added ${addedCount} hyperlink(s) to parenthetical citations.`);
     });
   } catch (error) {
-    setStatus(`Unable to add hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to add hyperlinks. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -384,7 +428,9 @@ async function removeParentheticalHyperlinks() {
   try {
     await removeAllHyperlinks();
   } catch (error) {
-    setStatus(`Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to remove hyperlinks. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -473,7 +519,9 @@ async function connectSelectedProvider() {
 
   const credentials: Record<string, string> = {};
   provider.credentialFields.forEach((field) => {
-    const input = document.getElementById(`credential-${provider.id}-${field.key}`) as HTMLInputElement | null;
+    const input = document.getElementById(
+      `credential-${provider.id}-${field.key}`
+    ) as HTMLInputElement | null;
     credentials[field.key] = input?.value ?? "";
   });
 
@@ -482,7 +530,9 @@ async function connectSelectedProvider() {
     await provider.authenticate(credentials);
     setStatus(`Connected to ${provider.name}.`);
   } catch (error) {
-    setStatus(`Unable to connect to ${provider.name}. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to connect to ${provider.name}. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
   updateProviderAuthStatus();
 }
@@ -528,7 +578,10 @@ async function applyHyperlinksViaProvider() {
 
       // Looked up one at a time (not in parallel) to stay within each provider's rate limits.
       for (const raw of candidates) {
-        const searchResults = context.document.body.search(raw, { matchCase: false, matchWholeWord: false });
+        const searchResults = context.document.body.search(raw, {
+          matchCase: false,
+          matchWholeWord: false,
+        });
         searchResults.load("items");
         await context.sync();
 
@@ -545,7 +598,9 @@ async function applyHyperlinksViaProvider() {
         searchResults.items.forEach((item) => item.hyperlinks.load("items"));
         await context.sync();
 
-        const unlinkedItems = searchResults.items.filter((item) => item.hyperlinks.items.length === 0);
+        const unlinkedItems = searchResults.items.filter(
+          (item) => item.hyperlinks.items.length === 0
+        );
         if (unlinkedItems.length === 0) {
           linkedCount += 1;
           continue;
@@ -553,7 +608,8 @@ async function applyHyperlinksViaProvider() {
 
         const parsed = parseCaseCitation(raw) || { raw };
         const match = await provider.lookupCitation(parsed);
-        if (!match || !isSafeHyperlinkUrl(match.url)) {
+        const safeUrl = match ? toSafeHyperlinkUrl(match.url) : null;
+        if (!safeUrl) {
           if (supportsRateLimitAwareness(provider) && provider.wasLastRequestRateLimited()) {
             rateLimitedCount += 1;
           } else {
@@ -563,7 +619,7 @@ async function applyHyperlinksViaProvider() {
         }
 
         for (const item of unlinkedItems) {
-          await applyHyperlinkToItem(context, item, match.url, raw);
+          await insertSafeHyperlink(context, item, safeUrl, raw);
         }
 
         linkedCount += 1;
@@ -579,7 +635,9 @@ async function applyHyperlinksViaProvider() {
       );
     });
   } catch (error) {
-    setStatus(`Unable to complete the online lookup. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to complete the online lookup. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -699,14 +757,18 @@ async function checkBluebookCitations() {
       }
 
       const errorCount = lastBluebookResults.reduce(
-        (count, result) => count + result.issues.filter((issue) => issue.severity === "error").length,
+        (count, result) =>
+          count + result.issues.filter((issue) => issue.severity === "error").length,
         0
       );
       const warningCount = lastBluebookResults.reduce(
-        (count, result) => count + result.issues.filter((issue) => issue.severity === "warning").length,
+        (count, result) =>
+          count + result.issues.filter((issue) => issue.severity === "warning").length,
         0
       );
-      const flaggedCount = lastBluebookResults.filter((result) => !result.parsed || result.issues.length > 0).length;
+      const flaggedCount = lastBluebookResults.filter(
+        (result) => !result.parsed || result.issues.length > 0
+      ).length;
 
       setStatus(
         `Checked ${candidates.length} citation(s) against the ${ruleSet.name}; ${flaggedCount} flagged ` +
@@ -714,7 +776,9 @@ async function checkBluebookCitations() {
       );
     });
   } catch (error) {
-    setStatus(`Unable to check citations. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to check citations. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -735,9 +799,11 @@ function invalidateBluebookResults() {
 }
 
 /**
- * Deep-links into the "Bluebook citation correction" GitHub Issue Form (see
- * .github/ISSUE_TEMPLATE/bluebook-correction.yml and CONTRIBUTING.md) with the flagged citation
- * and rule already filled in, so reporting a possible false positive doesn't require retyping it.
+ * Deep-links into openclerk-core's "Bluebook citation correction" GitHub Issue Form (see
+ * openclerk-core's .github/ISSUE_TEMPLATE/bluebook-correction.yml and this repo's CONTRIBUTING.md)
+ * with the flagged citation and rule already filled in, so reporting a possible false positive
+ * doesn't require retyping it. Points at openclerk-core, not this repo, because the Bluebook rule
+ * data and rule-checking logic it reports against lives there now.
  */
 function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookIssue): string {
   const params = new URLSearchParams({
@@ -746,7 +812,7 @@ function buildBluebookCorrectionReportUrl(citationText: string, issue: BluebookI
     "citation-example": citationText,
     "whats-wrong": `OpenClerk flagged this citation with rule "${issue.ruleId}":\n\n${issue.message}\n\nI believe this flag is incorrect because: `,
   });
-  return `https://github.com/OpenClerkProject/openclerk-word/issues/new?${params.toString()}`;
+  return `https://github.com/OpenClerkProject/openclerk-core/issues/new?${params.toString()}`;
 }
 
 async function goToCitationInDocument(citationText: string) {
@@ -756,7 +822,10 @@ async function goToCitationInDocument(citationText: string) {
 
   try {
     await Word.run(async (context) => {
-      const results = context.document.body.search(citationText, { matchCase: false, matchWholeWord: false });
+      const results = context.document.body.search(citationText, {
+        matchCase: false,
+        matchWholeWord: false,
+      });
       results.load("items");
       await context.sync();
 
@@ -771,7 +840,9 @@ async function goToCitationInDocument(citationText: string) {
       await context.sync();
     });
   } catch (error) {
-    setStatus(`Unable to locate that citation. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to locate that citation. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -788,12 +859,14 @@ function renderBluebookResults() {
   }
 
   if (lastBluebookResults === null) {
-    container.innerHTML = '<p class="helper-text">No case citations found yet. Click "Check citations".</p>';
+    container.innerHTML =
+      '<p class="helper-text">No case citations found yet. Click "Check citations".</p>';
     return;
   }
 
   if (lastBluebookResults.length === 0) {
-    container.innerHTML = '<p class="helper-text">No case citations were found in the current document.</p>';
+    container.innerHTML =
+      '<p class="helper-text">No case citations were found in the current document.</p>';
     return;
   }
 
@@ -805,15 +878,23 @@ function renderBluebookResults() {
     (count, result) => count + result.issues.filter((issue) => issue.severity === "warning").length,
     0
   );
-  const cleanCount = lastBluebookResults.filter((result) => result.parsed && result.issues.length === 0).length;
+  const cleanCount = lastBluebookResults.filter(
+    (result) => result.parsed && result.issues.length === 0
+  ).length;
 
   if (summaryEl) {
     const parts: { text: string; className: string }[] = [];
     if (errorCount > 0) {
-      parts.push({ text: `${errorCount} error${errorCount === 1 ? "" : "s"}`, className: "summary-errors" });
+      parts.push({
+        text: `${errorCount} error${errorCount === 1 ? "" : "s"}`,
+        className: "summary-errors",
+      });
     }
     if (warningCount > 0) {
-      parts.push({ text: `${warningCount} warning${warningCount === 1 ? "" : "s"}`, className: "summary-warnings" });
+      parts.push({
+        text: `${warningCount} warning${warningCount === 1 ? "" : "s"}`,
+        className: "summary-warnings",
+      });
     }
     parts.push({ text: `${cleanCount} clean`, className: "summary-ok" });
     parts.forEach((part, index) => {
@@ -832,7 +913,8 @@ function renderBluebookResults() {
     : lastBluebookResults;
 
   if (visibleResults.length === 0) {
-    container.innerHTML = '<p class="helper-text">No flagged citations -- everything checked out clean.</p>';
+    container.innerHTML =
+      '<p class="helper-text">No flagged citations -- everything checked out clean.</p>';
     return;
   }
 
@@ -1003,33 +1085,15 @@ async function checkForHallucinations() {
         return;
       }
 
-      const results: HallucinationResult[] = [];
-
       // Looked up one citation, one provider, at a time (not in parallel) to stay within each
-      // platform's rate limits -- same reasoning as the Online Lookup tab.
-      for (const raw of candidates) {
-        const parsed = parseCaseCitation(raw) || { raw };
-        let verifiedVia: string | null = null;
-        const skippedProviders: string[] = [];
-        const rateLimitedProviders: string[] = [];
-
-        for (const provider of selectedProviders) {
-          if (provider.requiresAuth && !provider.isAuthenticated()) {
-            skippedProviders.push(provider.name);
-            continue;
-          }
-          const match = await provider.lookupCitation(parsed);
-          if (match) {
-            verifiedVia = provider.name;
-            break;
-          }
-          if (supportsRateLimitAwareness(provider) && provider.wasLastRequestRateLimited()) {
-            rateLimitedProviders.push(provider.name);
-          }
-        }
-
-        results.push({ raw, verifiedVia, skippedProviders, rateLimitedProviders });
-      }
+      // platform's rate limits -- same reasoning as the Online Lookup tab. Delegates to
+      // openclerk-core's checkCitationsForHallucinations instead of re-deriving this loop here --
+      // that shared implementation is also what verifies a provider's match actually names the
+      // same case (see caseNamesMatch), not just that it resolved some citation locator.
+      const results: HallucinationCheckResult[] = await checkCitationsForHallucinations(
+        candidates,
+        selectedProviders
+      );
 
       renderHallucinationResults(results);
 
@@ -1053,11 +1117,13 @@ async function checkForHallucinations() {
       );
     });
   } catch (error) {
-    setStatus(`Unable to check citations. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to check citations. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
-function renderHallucinationResults(results: HallucinationResult[]) {
+function renderHallucinationResults(results: HallucinationCheckResult[]) {
   const container = document.getElementById("hallucination-results-list");
   if (!container) {
     return;
@@ -1087,6 +1153,13 @@ function renderHallucinationResults(results: HallucinationResult[]) {
     if (result.verifiedVia) {
       status.classList.add("issue-ok");
       status.textContent = `Verified via ${result.verifiedVia}.`;
+    } else if (result.nameMismatch) {
+      // A stronger fabrication signal than a plain "not found": the citation's locator
+      // (reporter/volume/page) is real, but it belongs to a different case than the one named
+      // here -- exactly the pattern of a citation with a real-looking citation attached to a
+      // fabricated case name.
+      status.classList.add("issue-flagged");
+      status.textContent = `Possible hallucination -- ${result.nameMismatch.provider} resolves this citation to a different case: "${result.nameMismatch.foundCaseName}".`;
     } else if (result.rateLimitedProviders.length > 0) {
       // Deliberately not styled/worded like a flagged hallucination -- a throttled request isn't
       // evidence of anything, and this citation may well be genuine once re-checked.
@@ -1189,11 +1262,15 @@ async function embedCitedOpinionText() {
       const candidates = extractCaseCitations(bodyText);
       const pinciteCitations = candidates
         .map((raw) => ({ raw, parsed: parseCaseCitation(raw) }))
-        .filter((item): item is { raw: string; parsed: ParsedCitation } => Boolean(item.parsed?.pincite));
+        .filter((item): item is { raw: string; parsed: ParsedCitation } =>
+          Boolean(item.parsed?.pincite)
+        );
 
       if (pinciteCitations.length === 0) {
         renderEmbedTextResults([]);
-        setStatus("No citations with a pincite (a page beyond the first page) were found in the document.");
+        setStatus(
+          "No citations with a pincite (a page beyond the first page) were found in the document."
+        );
         return;
       }
 
@@ -1233,29 +1310,43 @@ async function embedCitedOpinionText() {
           continue;
         }
 
-        const searchResults = context.document.body.search(raw, { matchCase: false, matchWholeWord: false });
+        const searchResults = context.document.body.search(raw, {
+          matchCase: false,
+          matchWholeWord: false,
+        });
         searchResults.load("items");
         await context.sync();
 
         if (searchResults.items.length === 0) {
-          results.push({ raw, embedded: false, reason: "Could not find this citation's text in the document." });
+          results.push({
+            raw,
+            embedded: false,
+            reason: "Could not find this citation's text in the document.",
+          });
           continue;
         }
 
         // A Word comment is collapsed by default (just a margin icon) and expands on click --
         // exactly the "embedded, expandable/collapsible" behavior this feature is for, using
         // Word's own native UI instead of a custom widget.
-        searchResults.items[0].insertComment(buildEmbeddedCommentContent(raw, excerpt));
-        await context.sync();
+        await insertSafeComment(
+          context,
+          searchResults.items[0],
+          buildEmbeddedCommentContent(raw, excerpt)
+        );
         results.push({ raw, embedded: true, reason: null });
       }
 
       renderEmbedTextResults(results);
       const embeddedCount = results.filter((result) => result.embedded).length;
-      setStatus(`Embedded opinion text for ${embeddedCount} of ${pinciteCitations.length} pincite citation(s).`);
+      setStatus(
+        `Embedded opinion text for ${embeddedCount} of ${pinciteCitations.length} pincite citation(s).`
+      );
     });
   } catch (error) {
-    setStatus(`Unable to embed cited text. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to embed cited text. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -1273,14 +1364,18 @@ async function removeEmbeddedCitationText() {
       comments.items.forEach((comment) => comment.load("content"));
       await context.sync();
 
-      const ours = comments.items.filter((comment) => comment.content.startsWith(EMBEDDED_TEXT_COMMENT_MARKER));
+      const ours = comments.items.filter((comment) =>
+        comment.content.startsWith(EMBEDDED_TEXT_COMMENT_MARKER)
+      );
       ours.forEach((comment) => comment.delete());
       await context.sync();
 
       setStatus(`Removed ${ours.length} embedded citation text comment(s).`);
     });
   } catch (error) {
-    setStatus(`Unable to remove embedded text. ${error instanceof Error ? error.message : String(error)}`);
+    setStatus(
+      `Unable to remove embedded text. ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -1297,7 +1392,8 @@ function renderEmbedTextResults(results: EmbedTextResult[]) {
   }
 
   if (results.length === 0) {
-    container.innerHTML = '<p class="helper-text">No results yet. Click "Embed cited opinion text".</p>';
+    container.innerHTML =
+      '<p class="helper-text">No results yet. Click "Embed cited opinion text".</p>';
     return;
   }
 
@@ -1335,7 +1431,8 @@ function renderEmbedTextResults(results: EmbedTextResult[]) {
     status.className = "helper-text";
     if (result.embedded) {
       status.classList.add("issue-ok");
-      status.textContent = "Embedded as a comment -- click the comment icon in the margin to expand it.";
+      status.textContent =
+        "Embedded as a comment -- click the comment icon in the margin to expand it.";
     } else {
       status.classList.add("issue-flagged");
       status.textContent = result.reason || "Not embedded.";
@@ -1411,7 +1508,9 @@ async function parseSourceDocument(file: File): Promise<CitationMap> {
 
   const entryCount = Object.keys(zip.files).length;
   if (entryCount > MAX_ZIP_ENTRY_COUNT) {
-    throw new Error("The selected file contains an unexpectedly large number of entries and was rejected.");
+    throw new Error(
+      "The selected file contains an unexpectedly large number of entries and was rejected."
+    );
   }
 
   const documentXml = await readZipEntryWithLimit(zip, "word/document.xml");
@@ -1439,7 +1538,7 @@ async function parseSourceDocument(file: File): Promise<CitationMap> {
     const url = relationshipId ? relationships.get(relationshipId) || "" : "";
     const text = normalizeText(getElementText(hyperlink));
 
-    if (text && url && isLikelyCaseCitation(text) && isSafeHyperlinkUrl(url)) {
+    if (text && url && isLikelyCaseCitation(text) && toSafeHyperlinkUrl(url) !== null) {
       citationMap.set(text, url);
     }
   }
@@ -1470,6 +1569,12 @@ async function removeAllHyperlinks(): Promise<void> {
       const ooxmlResult = body.getOoxml();
       await context.sync();
 
+      // getOoxml() returns an OfficeExtension.ClientResult<string>, not a proxy object; its .value
+      // is populated automatically by the context.sync() above, no .load() call applies here. The
+      // lint rule's getFunctions.json name-matching heuristic can't distinguish ClientResult-
+      // returning methods from proxy-object-returning ones, so the next line is a documented false
+      // positive for office-addins/load-object-before-read.
+      // eslint-disable-next-line office-addins/load-object-before-read
       const originalOoxml = ooxmlResult && ooxmlResult.value ? String(ooxmlResult.value) : "";
       if (!originalOoxml) {
         setStatus("No document OOXML available to process.");
@@ -1486,16 +1591,20 @@ async function removeAllHyperlinks(): Promise<void> {
       }
 
       // Remove the hyperlink wrapper tags but keep inner runs (visible text)
-      let strippedOoxml = originalOoxml.replace(/<w:hyperlink\b[^>]*>/g, "").replace(/<\/w:hyperlink>/g, "");
+      let strippedOoxml = originalOoxml
+        .replace(/<w:hyperlink\b[^>]*>/g, "")
+        .replace(/<\/w:hyperlink>/g, "");
 
       // Remove the character style reference that causes blue/underline rendering
-      strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*\/\>/g, "");
+      strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*\/>/g, "");
       // Also remove non-self-closing form if present
-      strippedOoxml = strippedOoxml.replace(/<w:rStyle\s+w:val="Hyperlink"\s*>\s*<\/w:rStyle>/g, "");
+      strippedOoxml = strippedOoxml.replace(
+        /<w:rStyle\s+w:val="Hyperlink"\s*>\s*<\/w:rStyle>/g,
+        ""
+      );
 
       // Replace entire body OOXML with cleaned version
-      body.insertOoxml(strippedOoxml, Word.InsertLocation.replace);
-      await context.sync();
+      await insertSafeOoxml(context, body, strippedOoxml);
 
       setStatus(`Removed ${removedCount} hyperlink(s) from the document.`);
     });

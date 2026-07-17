@@ -8,6 +8,12 @@ on:
   release:
     types: [published]
 
+# Least-privilege default for GITHUB_TOKEN across all jobs. The build/test/lint/typecheck/
+# installer/offline jobs only need to read the repo; the deploy-pages and publish jobs override
+# this with the wider scopes they actually need (pages/id-token, contents:write/attestations).
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build
@@ -70,6 +76,46 @@ jobs:
       - name: Run tests
         run: npm test
 
+  lint:
+    name: Lint
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run typecheck
+        run: npm run typecheck
+
   installer-smoke:
     name: Installer Smoke
     needs: build
@@ -95,6 +141,8 @@ jobs:
           set -e
           unzip -l openclerk-addin.zip | tee package-list.txt
           grep -q "installer/install-openclerk.ps1" package-list.txt
+          grep -q "installer/install-openclerk.cmd" package-list.txt
+          grep -q "installer/install-openclerk.sh" package-list.txt
           grep -q "manifest.xml" package-list.txt
           # Verify the JS installer is no longer bundled (end users do not need Node.js)
           if grep -q "installer/install-openclerk.js" package-list.txt; then
@@ -127,6 +175,69 @@ jobs:
             -ManifestPath manifest.xml \
             -Target /tmp/openclerk-wef
           test -f /tmp/openclerk-wef/openclerk-manifest.xml
+
+  installer-smoke-macos:
+    name: Installer Smoke (macOS)
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package add-in
+        run: npm run package
+
+      - name: Verify package contents include the macOS installer
+        run: |
+          set -e
+          unzip -l openclerk-addin.zip | tee package-list.txt
+          grep -q "installer/install-openclerk.sh" package-list.txt
+          grep -q "manifest.xml" package-list.txt
+
+      - name: Unzip release package
+        run: unzip -q openclerk-addin.zip -d /tmp/openclerk-release-macos
+
+      - name: Verify installer script is executable after unzip
+        run: |
+          set -e
+          test -x /tmp/openclerk-release-macos/installer/install-openclerk.sh
+
+      - name: Installer bash dry-run smoke test (default target)
+        run: |
+          set -e
+          # No --target passed: exercises the real macOS default-path resolution
+          # (~/Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef).
+          output=$(/tmp/openclerk-release-macos/installer/install-openclerk.sh --dry-run)
+          echo "$output"
+          echo "$output" | grep -q "Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef"
+          echo "$output" | grep -q "Dry run enabled"
+
+      - name: Installer bash copy smoke test
+        run: |
+          set -e
+          /tmp/openclerk-release-macos/installer/install-openclerk.sh \
+            --manifest manifest.xml \
+            --target /tmp/openclerk-wef-macos
+          test -f /tmp/openclerk-wef-macos/openclerk-manifest.xml
+
+      - name: Manual sideload location smoke test (simulates Word for Mac's scan folder)
+        run: |
+          set -e
+          # Word for Mac scans this exact folder for sideloaded manifests; confirm the
+          # installer's default target really is that folder end-to-end, with no --target override.
+          /tmp/openclerk-release-macos/installer/install-openclerk.sh --manifest manifest.xml
+          wef_dir="$HOME/Library/Containers/com.Microsoft.OsfWebHost/Data/documents/wef"
+          test -f "$wef_dir/openclerk-manifest.xml"
+          grep -q "<OfficeApp" "$wef_dir/openclerk-manifest.xml"
 
   offline-smoke:
     name: Offline Package Smoke
@@ -214,7 +325,7 @@ jobs:
 
   publish:
     name: Publish Add-in
-    needs: [build, test, installer-smoke, offline-smoke]
+    needs: [build, test, lint, typecheck, installer-smoke, installer-smoke-macos, offline-smoke]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
@@ -319,9 +430,12 @@ jobs:
             echo "$token_response"
             exit 1
           fi
+          # access_token is derived at runtime (not a literal secrets.* reference), so it isn't on
+          # GitHub Actions' auto-mask list -- mask it explicitly so it can never leak into logs.
+          echo "::add-mask::$access_token"
 
           echo "Uploading package to Partner Center API URL"
-          curl -v -X POST \
+          curl -sS -X POST \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/zip" \
             --data-binary @./openclerk-addin.zip \
