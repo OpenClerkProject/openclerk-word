@@ -2,10 +2,13 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>3e0d3ccf-cbc6-4a3c-a29a-75d96be5bf89</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Contoso</ProviderName>
+  <!-- ProviderName MUST match the Publisher display name on the Partner Center account that submits
+       this add-in, or AppSource validation rejects the submission. Update if the submitting account
+       uses a different legal/display name. -->
+  <ProviderName>William Barnhart</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="OpenClerk"/>
-  <Description DefaultValue="A template to get started."/>
+  <Description DefaultValue="Hyperlink, Bluebook-check, and verify legal case-law citations in Word. Flags likely-fabricated citations and embeds cited opinion text. Optional lookups use CourtListener or your firm's Westlaw, LexisNexis, or Bloomberg Law credentials."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/logo-filled-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/logo-filled-80.png"/>
   <SupportUrl DefaultValue="https://github.com/OpenClerkProject/openclerk-word/issues"/>
@@ -72,18 +75,18 @@
         <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/logo-filled-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812"/>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/OpenClerkProject/openclerk-word#readme"/>
         <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started with your sample add-in!"/>
+        <bt:String id="GetStarted.Title" DefaultValue="OpenClerk is ready"/>
         <bt:String id="CommandsGroup.Label" DefaultValue="OpenClerk"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Show Task Pane"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Your sample add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Taskpane"/>
+        <bt:String id="GetStarted.Description" DefaultValue="OpenClerk loaded successfully. On the Home tab, click 'Show Task Pane' to hyperlink, check, and verify legal citations."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open the OpenClerk task pane to hyperlink, Bluebook-check, and verify legal citations"/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
