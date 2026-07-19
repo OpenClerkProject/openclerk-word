@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>3e0d3ccf-cbc6-4a3c-a29a-75d96be5bf89</Id>
-  <!-- Deliberately NOT synced to the project's git tags (currently v0.3.0): the Office manifest
-       validator hard-rejects any <Version> below 1.0 ("Manifest Version Too Low"), so this field
-       can't track a pre-1.0 semver scheme. Treat it as an independent "store submission" counter,
-       starting at 1.0.0.0 for the first AppSource release; bump it only when a manifest-relevant
-       change (icon, URLs, permissions, host requirements) requires Partner Center resubmission,
-       not on every git tag. See SUBMISSION.md § 1 for the full rationale. -->
+  <!-- This value is a LOCAL/DEV DEFAULT ONLY, never what actually ships in a real release. CI's
+       publish job (.github/workflows/ci.yml, triggered by a published GitHub Release) overwrites
+       this at build time to "<release-tag-without-v>.0" via webpack.config.js's
+       OPENCLERK_MANIFEST_VERSION substitution, e.g. tag v1.2.3 becomes packaged
+       <Version>1.2.3.0</Version>. That step hard-fails the release if the tag's major version is
+       below 1, since the Office manifest validator rejects any <Version> below 1.0, so this
+       coupling only takes effect once the project's own tags reach v1.0.0+ (currently v0.3.0; see
+       SUBMISSION.md § 1). Until then, every release build fails at "Derive manifest version from
+       release tag" by design, rather than silently shipping a Version out of sync with the tag. -->
   <Version>1.0.0.0</Version>
   <!-- ProviderName MUST match the Publisher display name on the Partner Center account that submits
        this add-in, or AppSource validation rejects the submission. Update if the submitting account

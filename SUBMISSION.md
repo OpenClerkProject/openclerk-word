@@ -18,7 +18,7 @@ needs to test every feature. Fill in the `<FILL IN>` items before submitting.
 | Add-in name (`DisplayName`) | **OpenClerk** |
 | Publisher / `ProviderName` | **William Barnhart** — confirmed to match the Partner Center account's Publisher display name. |
 | Add-in ID (`Id`) | `3e0d3ccf-cbc6-4a3c-a29a-75d96be5bf89` |
-| Version | `1.0.0.0` — **intentionally not synced** to the git release tag (`v0.3.0`): `office-addin-manifest validate` hard-rejects `<Version>` below 1.0 ("Manifest Version Too Low"), so a pre-1.0 project semver can't be mirrored here. Treat this as an independent "store submission" counter — bump it only when a manifest-relevant change (icon, hosted URLs, permissions, host requirements) forces a Partner Center resubmission, not on every git tag. |
+| Version | `1.0.0.0` in the repo is a **local/dev default only**. Real releases get this coupled automatically: CI's `publish` job derives `<release-tag-without-v>.0` from the GitHub Release tag and substitutes it at build time (`OPENCLERK_MANIFEST_VERSION`, see `webpack.config.js` and `.github/workflows/ci.yml`). That step **hard-fails the release** if the tag's major version is below 1 (the manifest validator rejects `<Version>` below 1.0) — so coupling only takes effect once this project's own tags reach `v1.0.0+` (currently `v0.3.0`). Until then, don't cut a GitHub Release from this repo; the `publish` job will fail by design at "Derive manifest version from release tag" rather than ship a mismatched version. |
 | Host / platforms | Word — desktop (Windows & Mac), Word on the web. Requires **WordApi 1.4+** (declared in the manifest). |
 | EULA | **Use Microsoft's Standard Contract** (Partner Center → Properties tab checkbox) — no custom EULA URL. `TERMS.md`/`terms.html` remains the separate in-product Terms of Use (§2 below), which Partner Center treats as a distinct field from the EULA. |
 
@@ -93,8 +93,9 @@ Declare these on the submission form (undisclosed dependencies / paid access are
 - [x] `HighResolutionIconUrl` fixed to a real 64×64 PNG (`assets/logo-filled-64.png`) — Partner
       Center rejected the previous 80×80 image with "Icon incorrectly Sized." Ribbon icons
       (`Icon.16x16`/`32x32`/`80x80`) are a separate, correctly-sized set and were left untouched.
-- [x] `manifest.xml` `<Version>` (`1.0.0.0`) confirmed intentional, not a stale placeholder — the
-      validator requires >= 1.0, so it can't mirror the pre-1.0 git tag (`v0.3.0`); see §1.
+- [x] `manifest.xml` `<Version>` is now auto-coupled to the GitHub Release tag by CI (`publish` job
+      derives `<tag-without-v>.0`); the checked-in `1.0.0.0` is just the local/dev default. See §1 —
+      this only actually activates once tags reach `v1.0.0+` (blocked below that, by design).
 - [ ] Privacy, Terms, Support, and Task pane URLs all return 200 over HTTPS on the live site.
 - [ ] Production manifest contains **no** `localhost` URLs (CI "Verify production manifest URLs" gate).
 - [x] `npx office-addin-manifest validate manifest.xml` passes.

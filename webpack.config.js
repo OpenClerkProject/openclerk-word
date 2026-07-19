@@ -10,6 +10,18 @@ const urlDev = "https://localhost:3000/";
 // running `npm run build`/`npm run package` -- see README.md > "Self-hosting".
 const urlProd = (process.env.OPENCLERK_HOST_URL || "https://openclerkproject.github.io/openclerk-word/").replace(/\/*$/, "/");
 
+// Couples the packaged manifest's <Version> to the GitHub release tag that triggered the build.
+// CI's publish job (.github/workflows/ci.yml) derives this as "<tag-without-v>.0" and sets it
+// before running `npm run build`; local/dev/PR builds leave it unset and keep whatever <Version>
+// is checked into manifest.xml. Validated here (not just in CI) because this file can be invoked
+// directly by anyone running `npm run build`/`npm run package` with the env var set by hand.
+const manifestVersion = process.env.OPENCLERK_MANIFEST_VERSION;
+if (manifestVersion && !/^\d+\.\d+\.\d+\.0$/.test(manifestVersion)) {
+  throw new Error(
+    `OPENCLERK_MANIFEST_VERSION must look like "X.Y.Z.0" (trailing segment always 0), got: "${manifestVersion}"`
+  );
+}
+
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
   return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
@@ -77,11 +89,14 @@ module.exports = async (env, options) => {
             from: "manifest*.xml",
             to: "[name]" + "[ext]",
             transform(content) {
-              if (dev) {
-                return content;
-              } else {
-                return content.toString().replace(new RegExp(urlDev, "g"), urlProd);
+              let result = content.toString();
+              if (!dev) {
+                result = result.replace(new RegExp(urlDev, "g"), urlProd);
               }
+              if (manifestVersion) {
+                result = result.replace(/<Version>[^<]*<\/Version>/, `<Version>${manifestVersion}</Version>`);
+              }
+              return result;
             },
           },
         ],

@@ -347,6 +347,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Derive manifest version from release tag
+        run: |
+          set -e
+          tag="${{ github.event.release.tag_name }}"
+          version="${tag#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: release tag '$tag' is not in the expected vX.Y.Z (or X.Y.Z) format -- can't derive a manifest version from it."
+            exit 1
+          fi
+          major="${version%%.*}"
+          if [ "$major" -lt 1 ]; then
+            echo "ERROR: release tag '$tag' has major version $major, but the Office manifest schema requires <Version> >= 1.0 (office-addin-manifest validate rejects anything lower). Coupling can't produce a valid manifest version until this project's own tags reach v1.0.0+ -- see manifest.xml and SUBMISSION.md § 1."
+            exit 1
+          fi
+          echo "OPENCLERK_MANIFEST_VERSION=${version}.0" >> "$GITHUB_ENV"
+          echo "Manifest version for this release: ${version}.0"
+
       - name: Build add-in package
         run: npm run build --if-present
 
@@ -363,6 +380,17 @@ jobs:
       - name: Package add-in
         run: npm run package
 
+      - name: Verify packaged manifest version matches the release tag
+        run: |
+          set -e
+          unzip -p openclerk-addin.zip manifest.xml > /tmp/release-manifest.xml
+          actual=$(grep -oE '<Version>[^<]*</Version>' /tmp/release-manifest.xml | sed -E 's/<\/?Version>//g')
+          if [ "$actual" != "$OPENCLERK_MANIFEST_VERSION" ]; then
+            echo "ERROR: packaged manifest Version is '$actual', expected '$OPENCLERK_MANIFEST_VERSION' (derived from release tag ${{ github.event.release.tag_name }})"
+            exit 1
+          fi
+          echo "Packaged manifest Version correctly matches the release tag: $actual"
+
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
         with:
@@ -375,6 +403,17 @@ jobs:
 
       - name: Package offline add-in
         run: npm run package:offline
+
+      - name: Verify offline packaged manifest version matches the release tag
+        run: |
+          set -e
+          unzip -p openclerk-addin-offline.zip manifest.xml > /tmp/release-manifest-offline.xml
+          actual=$(grep -oE '<Version>[^<]*</Version>' /tmp/release-manifest-offline.xml | sed -E 's/<\/?Version>//g')
+          if [ "$actual" != "$OPENCLERK_MANIFEST_VERSION" ]; then
+            echo "ERROR: offline packaged manifest Version is '$actual', expected '$OPENCLERK_MANIFEST_VERSION' (derived from release tag ${{ github.event.release.tag_name }})"
+            exit 1
+          fi
+          echo "Offline packaged manifest Version correctly matches the release tag: $actual"
 
       - name: Upload offline release asset
         uses: actions/upload-release-asset@v1
