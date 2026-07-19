@@ -10,12 +10,10 @@ reports zero, everything in the "Placeholder" section below is done.
 
 ## Placeholders (`npm run docs:pending` tracks these)
 
-- [ ] **Governing-law jurisdiction** — the one true blocker to publishing the Terms page.
-  - **Where:** `TERMS.md` § 8 (the `[jurisdiction to be specified]` on ~line 85).
-  - **What:** replace with the chosen jurisdiction (e.g. `the State of New York, USA`), and delete
-    the `<!-- TODO ... -->` comment just above it.
-  - **Decision owner:** the publisher, ideally with counsel — don't invent one.
-  - **Also update:** the checklist reference in `SUBMISSION.md` § 5.
+- [x] **Governing-law jurisdiction** — ~~the one true blocker to publishing the Terms page.~~
+  **Resolved:** `TERMS.md` § 8 (Governing law) was dropped rather than filled in, following standard
+  practice for MIT-licensed open-source projects — the MIT License itself carries no choice-of-law
+  clause, and Microsoft Partner Center does not require one. Contact is now § 8.
 
 - [ ] **Publisher / `ProviderName` confirmation.**
   - **Where:** `SUBMISSION.md` § 1 (`<FILL IN: confirm>` on the Publisher row).

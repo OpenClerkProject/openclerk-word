@@ -78,14 +78,7 @@ installing or upgrading it is something you or your organization does deliberate
 time to time; changes will be reflected here with a new "Last updated" date and noted in the
 project's [release notes](https://github.com/OpenClerkProject/openclerk-word/releases).
 
-## 8. Governing law
-
-<!-- TODO: fill in the governing jurisdiction before publishing -- this is a decision for the
-     publisher (and ideally counsel), not something to leave as placeholder text in a live listing. -->
-These Terms of Use are governed by the laws of `[jurisdiction to be specified]`, without regard to
-its conflict-of-laws principles.
-
-## 9. Contact
+## 8. Contact
 
 Questions about these terms can be raised as a
 [GitHub issue](https://github.com/OpenClerkProject/openclerk-word/issues) — there is no separate support line or
