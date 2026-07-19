@@ -66,6 +66,14 @@ module.exports = async (env, options) => {
             to: "assets/[name][ext][query]",
           },
           {
+            // README.md links to these with a plain relative path (store-assets/screenshots/...)
+            // so the same markdown renders correctly both on GitHub.com and, via build-docs.js, on
+            // the deployed GitHub Pages site -- which requires the files to exist at that same
+            // relative path under dist/.
+            from: "store-assets/screenshots/*.png",
+            to: "store-assets/screenshots/[name][ext][query]",
+          },
+          {
             from: "manifest*.xml",
             to: "[name]" + "[ext]",
             transform(content) {

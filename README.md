@@ -19,6 +19,25 @@ OpenClerk is a Word add-in (task pane) for legal citation work: hyperlinking cas
 
 > **Spotted a wrong Bluebook citation rule?** No coding experience needed to fix it — see [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-bluebook-citation-correction-no-coding-experience-needed) for a form you can fill out, or a one-file edit you can make directly on GitHub.com.
 
+## Screenshots
+
+*The task pane content below is pixel-accurate to the real production build; the surrounding Word window is a simplified mock-up, not an actual Word screenshot.*
+
+**Manage Hyperlinks — apply links from a source document**
+![Manage Hyperlinks tab, file-based source selected](store-assets/screenshots/1-manage-hyperlinks-file-source.png)
+
+**Manage Hyperlinks — online lookup**
+![Manage Hyperlinks tab, online lookup source selected, CourtListener provider](store-assets/screenshots/2-manage-hyperlinks-online-lookup.png)
+
+**Bluebook Check**
+![Bluebook Check tab, 22nd Edition selected](store-assets/screenshots/3-bluebook-check.png)
+
+**Find Hallucinations**
+![Find Hallucinations tab, provider checklist](store-assets/screenshots/4-find-hallucinations.png)
+
+**Embed Cited Text**
+![Embed Cited Text tab, CourtListener provider selected](store-assets/screenshots/5-embed-cited-text.png)
+
 ## Download and install from GitHub
 
 OpenClerk's add-in content is hosted on **GitHub Pages** (`https://openclerkproject.github.io/openclerk-word/`), so **end users do not need Node.js, npm, or any developer tooling** to install and use the add-in.
