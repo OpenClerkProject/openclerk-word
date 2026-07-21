@@ -151,10 +151,10 @@ Office.onReady((info) => {
       sourceFileInput.addEventListener("change", onSourceFileSelected);
     }
     if (applyButton) {
-      applyButton.addEventListener("click", applyCaseLawHyperlinksFromSource);
+      applyButton.addEventListener("click", () => withBusyButton(applyButton, applyCaseLawHyperlinksFromSource));
     }
     if (removeButton) {
-      removeButton.addEventListener("click", removeCaseLawHyperlinks);
+      removeButton.addEventListener("click", () => withBusyButton(removeButton, removeCaseLawHyperlinks));
     }
     if (workflowSelect) {
       workflowSelect.addEventListener("change", () => setActiveTab(workflowSelect.value as TabId));
@@ -172,25 +172,35 @@ Office.onReady((info) => {
       });
     }
     if (scanButton) {
-      scanButton.addEventListener("click", scanParentheticalCitations);
+      scanButton.addEventListener("click", () => withBusyButton(scanButton, scanParentheticalCitations));
     }
     if (addParentheticalButton) {
-      addParentheticalButton.addEventListener("click", addParentheticalHyperlinks);
+      addParentheticalButton.addEventListener("click", () =>
+        withBusyButton(addParentheticalButton, addParentheticalHyperlinks)
+      );
     }
     if (removeParentheticalButton) {
-      removeParentheticalButton.addEventListener("click", removeParentheticalHyperlinks);
+      removeParentheticalButton.addEventListener("click", () =>
+        withBusyButton(removeParentheticalButton, removeParentheticalHyperlinks)
+      );
     }
     if (providerSelect) {
       providerSelect.addEventListener("change", renderProviderPanel);
     }
     if (providerConnectButton) {
-      providerConnectButton.addEventListener("click", connectSelectedProvider);
+      providerConnectButton.addEventListener("click", () =>
+        withBusyButton(providerConnectButton, connectSelectedProvider)
+      );
     }
     if (providerDisconnectButton) {
-      providerDisconnectButton.addEventListener("click", disconnectSelectedProvider);
+      providerDisconnectButton.addEventListener("click", () =>
+        withBusyButton(providerDisconnectButton, async () => disconnectSelectedProvider())
+      );
     }
     if (applyOnlineHyperlinksButton) {
-      applyOnlineHyperlinksButton.addEventListener("click", applyHyperlinksViaProvider);
+      applyOnlineHyperlinksButton.addEventListener("click", () =>
+        withBusyButton(applyOnlineHyperlinksButton, applyHyperlinksViaProvider)
+      );
     }
     if (bluebookEditionSelect) {
       bluebookEditionSelect.addEventListener("change", () => {
@@ -199,7 +209,9 @@ Office.onReady((info) => {
       });
     }
     if (checkBluebookCitationsButton) {
-      checkBluebookCitationsButton.addEventListener("click", checkBluebookCitations);
+      checkBluebookCitationsButton.addEventListener("click", () =>
+        withBusyButton(checkBluebookCitationsButton, checkBluebookCitations)
+      );
     }
     if (bluebookShowFlaggedOnlyCheckbox) {
       bluebookShowFlaggedOnlyCheckbox.addEventListener("change", () => {
@@ -208,16 +220,20 @@ Office.onReady((info) => {
       });
     }
     if (checkHallucinationsButton) {
-      checkHallucinationsButton.addEventListener("click", checkForHallucinations);
+      checkHallucinationsButton.addEventListener("click", () =>
+        withBusyButton(checkHallucinationsButton, checkForHallucinations)
+      );
     }
     if (embedTextProviderSelect) {
       embedTextProviderSelect.addEventListener("change", renderEmbedTextProviderStatus);
     }
     if (embedCitedTextButton) {
-      embedCitedTextButton.addEventListener("click", embedCitedOpinionText);
+      embedCitedTextButton.addEventListener("click", () => withBusyButton(embedCitedTextButton, embedCitedOpinionText));
     }
     if (removeEmbeddedTextButton) {
-      removeEmbeddedTextButton.addEventListener("click", removeEmbeddedCitationText);
+      removeEmbeddedTextButton.addEventListener("click", () =>
+        withBusyButton(removeEmbeddedTextButton, removeEmbeddedCitationText)
+      );
     }
 
     populateProviderSelect();
@@ -1493,6 +1509,25 @@ function setStatus(message: string) {
   const statusElement = document.getElementById("status");
   if (statusElement) {
     statusElement.textContent = message;
+  }
+}
+
+// Disables `button` for the duration of `action` so a slow operation (a document scan, a batch of
+// rate-limited API lookups) can't be re-triggered by an impatient second click while the first
+// run is still in flight -- which would waste API quota and could apply/insert duplicate edits.
+// Disabled buttons don't dispatch click events at all, so this alone is enough to prevent re-entrancy.
+async function withBusyButton(button: HTMLButtonElement | null, action: () => Promise<void>): Promise<void> {
+  if (!button) {
+    await action();
+    return;
+  }
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    await action();
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
   }
 }
 

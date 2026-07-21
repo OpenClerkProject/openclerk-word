@@ -99,6 +99,20 @@ button.ms-Button--primary:hover {
     background: #6f4518;
 }
 
+button.ms-Button:disabled:not(.move-button) {
+    opacity: 0.55;
+    cursor: default;
+    background: #fffdf8;
+    color: #8a7a63;
+    border-color: #d9c7a3;
+}
+
+button.ms-Button--primary:disabled:not(.move-button) {
+    background: #c2ab86;
+    color: #fff;
+    border-color: #c2ab86;
+}
+
 .file-input,
 .url-input {
     width: 100%;
