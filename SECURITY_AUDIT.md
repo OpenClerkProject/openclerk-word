@@ -279,3 +279,75 @@ Flagged only so a maintainer producing offline packages is aware the
 bundled copies are whatever the CDN served at build time; pinning
 `fabric.min.css` by version+hash (it already has a version-stamped URL)
 would be a cheap hardening if offline packages are distributed widely.
+
+---
+
+# Round 3 — 2026-07-14
+
+Follow-up prompted by the question: what can prevent a malicious XML from
+harming users? The one place OpenClerk parses untrusted XML is the Case Law
+tab's source-document import (`parseSourceDocument` in
+`src/taskpane/word.ts`), which unzips a user-chosen `.docx` and parses
+`word/document.xml` + `word/_rels/document.xml.rels` with the browser
+`DOMParser` to harvest citation→URL pairs.
+
+## Pre-existing defenses (verified, unchanged)
+
+The import path was already well-hardened, and these remain the first line
+of defense:
+- **Browser `DOMParser` does not resolve external entities**, so classic
+  XXE (local-file read, SSRF via `SYSTEM`/`PUBLIC` entities) is not
+  reachable — this is the load-bearing protection, and the code must never
+  move this parsing to a Node XML library that resolves entities.
+- **Zip-bomb caps**: 20 MB compressed file, 500-entry, 50 MB
+  per-decompressed-part (`MAX_SOURCE_FILE_BYTES` / `MAX_ZIP_ENTRY_COUNT` /
+  `MAX_DECOMPRESSED_XML_BYTES`, enforced in `readZipEntryWithLimit`).
+- **Only two fixed ZIP entries are read** — no arbitrary-part walking.
+- **Every extracted relationship `Target` is run through
+  `toSafeHyperlinkUrl`** (http/https/mailto allowlist) before it can become
+  a hyperlink, so `file://`/UNC/`javascript:` targets in a hostile source
+  doc are dropped.
+- **The imported file is never inserted into the user's document** — only
+  extracted citation text plus vetted URLs are.
+
+## Finding fixed in round 3
+
+### Harden untrusted-`.docx` XML parsing (DOCTYPE + malformed-XML rejection)
+**Files:** `src/taskpane/xmlPartGuard.ts` (new),
+`src/taskpane/word.ts` (`parseSourceDocument`, `parseRelationships`),
+`tests/xmlPartGuard.test.ts` (new)
+
+Two defense-in-depth gaps remained on top of the browser DOMParser's own
+behavior:
+- **No DOCTYPE/DTD rejection.** DOMParser blocks *external* entities but
+  still expands *internal* entities declared in an inline DTD, and the
+  expanded output is not bounded by the decompressed-size cap on the raw
+  input — a nested-entity ("billion laughs" / quadratic-blowup) part was a
+  theoretical CPU/memory DoS.
+- **Parse failures were silent.** `parseFromString` doesn't throw on
+  malformed XML; it returns a document containing a `<parsererror>`
+  element, which the code ignored — a corrupt/hostile part read as simply
+  "no citations found."
+
+**Fix:** added `assertSafeXmlPart` (a small, pure, DOM-duck-typed guard in
+its own module so it's unit-testable under the node Jest env, matching the
+`safeInsertion.ts` pattern). It rejects any imported part whose
+`doctype` is non-null (Word never emits a DOCTYPE in an OOXML part, so this
+closes the internal-entity DoS outright and also stays safe if the parser
+is ever swapped for an entity-resolving library) or that DOMParser flagged
+with a `<parsererror>`. Both parse sites (`parseSourceDocument`'s
+`document.xml` and `parseRelationships`'s `.rels`) now go through
+`parseXmlPartStrict`, which parses then calls the guard; the resulting
+`Error` surfaces through `parseSourceDocument`'s existing failure handling
+as a friendly message. 5 new unit tests cover the clean-pass, DOCTYPE,
+part-naming, malformed, and "billion-laughs parses cleanly but DOCTYPE
+still blocks it" cases. Full suite: 30 tests pass; typecheck, lint, and
+webpack build all clean.
+
+## Out of scope (noted, unchanged)
+
+- `removeAllHyperlinks` manipulates OOXML with regexes, but on the user's
+  *own* live document (via `getOoxml()`), not on imported attacker input —
+  not a malicious-XML vector.
+- `opinionTextExtractor.ts` strips tags from CourtListener *network*
+  responses (covered by earlier rounds), not from imported files.

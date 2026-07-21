@@ -30,6 +30,7 @@ import {
   SafeHyperlinkUrl,
 } from "openclerk-core";
 import { insertSafeHyperlink, insertSafeComment, insertSafeOoxml } from "./safeInsertion";
+import { assertSafeXmlPart } from "./xmlPartGuard";
 
 type CitationMap = Map<string, string>;
 type ParentheticalEntry = { citation: string; url: string; id: string };
@@ -1556,8 +1557,7 @@ async function parseSourceDocument(file: File): Promise<CitationMap> {
   }
 
   const relationships = parseRelationships(relationshipsXml);
-  const parser = new DOMParser();
-  const documentDom = parser.parseFromString(documentXml, "application/xml");
+  const documentDom = parseXmlPartStrict(documentXml, "document body");
   const hyperlinks = documentDom.getElementsByTagNameNS(
     "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "hyperlink"
@@ -1649,9 +1649,17 @@ async function removeAllHyperlinks(): Promise<void> {
   }
 }
 
+// Parses one XML part of an imported (untrusted) .docx and runs it through assertSafeXmlPart
+// before any caller inspects it (see xmlPartGuard.ts for the rejection rationale). Kept thin so
+// the security-relevant checks live in the separately-unit-tested guard module.
+function parseXmlPartStrict(xml: string, partName: string) {
+  const dom = new DOMParser().parseFromString(xml, "application/xml");
+  assertSafeXmlPart(dom, partName);
+  return dom;
+}
+
 function parseRelationships(relsXml: string): Map<string, string> {
-  const parser = new DOMParser();
-  const relsDom = parser.parseFromString(relsXml, "application/xml");
+  const relsDom = parseXmlPartStrict(relsXml, "relationships part");
   const relationships = relsDom.getElementsByTagName("Relationship");
   const result = new Map<string, string>();
 
