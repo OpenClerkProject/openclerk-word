@@ -40,7 +40,7 @@
     "@types/jszip": "^3.4.0",
     "core-js": "^3.36.0",
     "jszip": "^3.10.1",
-    "openclerk-core": "^0.3.0",
+    "openclerk-core": "0.4.2",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const archiver = require('archiver');
 
@@ -13,25 +14,42 @@ const outputPath = path.join(repoRoot, 'openclerk-addin-offline.zip');
 // defeats the whole point of an offline package. Vendor local copies at packaging time (this
 // runs in CI/dev, which has internet) and rewrite the HTML to reference them instead -- the
 // GitHub Pages build is untouched, since CDN loading is the right call when a network is assumed.
+// Each asset carries an optional `sha256` (lowercase hex of the raw downloaded bytes). When set,
+// the download is verified against it and packaging fails hard on any mismatch, so a compromised,
+// MITM'd, or silently-changed CDN response can never be vendored into the shipped offline package.
+// When null, packaging still proceeds but logs the freshly-computed digest plus a warning, making
+// it a one-line change to pin the asset. See vendorCdnAssets.
 const VENDOR_ASSETS = [
   {
+    // Evergreen production URL: Microsoft updates office.js in place at this path (there is no
+    // Microsoft-published versioned production URL to pin instead), so a hardcoded digest would
+    // break this build on every office.js update. Left unpinned deliberately.
+    // TODO: pin `sha256` once a stable/versioned office.js URL exists, or wire this to a
+    // maintainer-reviewed digest bumped deliberately alongside each office.js update.
     url: 'https://appsforoffice.microsoft.com/lib/1/hosted/office.js',
     localName: 'office.js',
+    sha256: null,
   },
   {
+    // Fully version-pinned, immutable CDN path (fabric-cdn-prod_20230815.002/.../11.1.0/), so its
+    // bytes never change and its digest can and should be pinned.
+    // TODO: pin `sha256` with this exact asset's digest to enforce integrity. Capture it from a
+    // trusted machine (`curl -sS <url> | sha256sum`); this build environment's proxy blocks the
+    // Microsoft CDN, so it could not be captured in place.
     url:
       'https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css',
     localName: 'fabric.min.css',
+    sha256: null,
   },
 ];
 
-function fetchText(url, redirectsLeft = 5) {
+function fetchAsset(url, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     https
       .get(url, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
           res.resume();
-          resolve(fetchText(res.headers.location, redirectsLeft - 1));
+          resolve(fetchAsset(res.headers.location, redirectsLeft - 1));
           return;
         }
         if (res.statusCode !== 200) {
@@ -39,9 +57,11 @@ function fetchText(url, redirectsLeft = 5) {
           res.resume();
           return;
         }
+        // Collect raw bytes (not a utf8 string) so the integrity digest below is computed over the
+        // exact content served, and the vendored copy is written byte-for-byte identical to it.
         const chunks = [];
         res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
       })
       .on('error', reject);
   });
@@ -51,8 +71,24 @@ async function vendorCdnAssets(vendorDir) {
   fs.mkdirSync(vendorDir, { recursive: true });
   for (const asset of VENDOR_ASSETS) {
     console.log(`Vendoring ${asset.url} -> vendor/${asset.localName}`);
-    const content = await fetchText(asset.url);
-    fs.writeFileSync(path.join(vendorDir, asset.localName), content, 'utf8');
+    const content = await fetchAsset(asset.url);
+    const digest = crypto.createHash('sha256').update(content).digest('hex');
+    if (asset.sha256) {
+      // Fail closed: never vendor an asset whose bytes don't match the pinned digest.
+      if (digest !== asset.sha256.toLowerCase()) {
+        throw new Error(
+          `Integrity check failed for ${asset.url}: expected sha256 ${asset.sha256}, got ${digest}. ` +
+            'Refusing to vendor an unexpected asset into the offline package.'
+        );
+      }
+      console.log(`  sha256 OK (${digest})`);
+    } else {
+      console.warn(
+        `  WARNING: ${asset.localName} is not integrity-pinned. Downloaded sha256 is ${digest}. ` +
+          'Pin this value in VENDOR_ASSETS[].sha256 to enforce integrity (see the TODO there).'
+      );
+    }
+    fs.writeFileSync(path.join(vendorDir, asset.localName), content);
   }
 }
 
